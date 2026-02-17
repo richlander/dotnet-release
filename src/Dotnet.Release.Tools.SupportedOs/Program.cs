@@ -3,26 +3,51 @@ using Dotnet.Release;
 using Dotnet.Release.Support;
 using Dotnet.Release.Tools.SupportedOs;
 
-// Usage: dotnet-supported-os <version> [path-or-url]
+// Usage: dotnet-supported-os <version> [path-or-url] [--template <file>]
+//        dotnet-supported-os --export-template
 // Examples:
-//   dotnet-supported-os 9.0
-//   dotnet-supported-os 9.0 ~/git/core/release-notes
-//   dotnet-supported-os 9.0 https://raw.githubusercontent.com/dotnet/core/release-index/release-notes/
+//   dotnet-supported-os 10.0
+//   dotnet-supported-os 10.0 ~/git/core/release-notes
+//   dotnet-supported-os --export-template > my-template.md
+//   dotnet-supported-os 10.0 --template my-template.md
+
+// Handle --export-template
+if (args.Length > 0 && args[0] == "--export-template")
+{
+    SupportedOsGenerator.ExportTemplate(Console.Out);
+    return 0;
+}
 
 if (args.Length == 0 || !decimal.TryParse(args[0], out _))
 {
-    Console.Error.WriteLine("Usage: dotnet-supported-os <version> [path-or-url]");
+    Console.Error.WriteLine("Usage: dotnet-supported-os <version> [path-or-url] [--template <file>]");
+    Console.Error.WriteLine("       dotnet-supported-os --export-template");
+    Console.Error.WriteLine();
     Console.Error.WriteLine("Examples:");
     Console.Error.WriteLine("  dotnet-supported-os 10.0");
     Console.Error.WriteLine("  dotnet-supported-os 10.0 ~/git/core/release-notes");
     Console.Error.WriteLine("  dotnet-supported-os 10.0 https://builds.dotnet.microsoft.com/dotnet/release-metadata/");
+    Console.Error.WriteLine("  dotnet-supported-os --export-template > my-template.md");
+    Console.Error.WriteLine("  dotnet-supported-os 10.0 --template my-template.md");
     return 1;
 }
 
 string version = args[0];
-string basePath = args.Length > 1
-    ? args[1]
-    : "https://raw.githubusercontent.com/dotnet/core/release-index/release-notes/";
+string basePath = "https://raw.githubusercontent.com/dotnet/core/release-index/release-notes/";
+string? templatePath = null;
+
+// Parse remaining args
+for (int i = 1; i < args.Length; i++)
+{
+    if (args[i] == "--template" && i + 1 < args.Length)
+    {
+        templatePath = args[++i];
+    }
+    else if (!args[i].StartsWith('-'))
+    {
+        basePath = args[i];
+    }
+}
 
 using var client = new HttpClient();
 var path = AdaptivePath.Create(basePath, client);
@@ -49,7 +74,7 @@ else
     output = Console.Out;
 }
 
-await SupportedOsGenerator.GenerateAsync(matrix, output, version, client);
+await SupportedOsGenerator.GenerateAsync(matrix, output, version, client, templatePath: templatePath);
 
 if (outputPath is not null)
 {

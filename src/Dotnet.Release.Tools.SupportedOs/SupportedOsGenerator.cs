@@ -10,10 +10,36 @@ namespace Dotnet.Release.Tools.SupportedOs;
 /// </summary>
 public static class SupportedOsGenerator
 {
-    public static async Task GenerateAsync(SupportedOSMatrix matrix, TextWriter output, string version, HttpClient client, string? supportPhase = null, string? releaseType = null)
+    private const string EmbeddedTemplateName = "Dotnet.Release.Tools.SupportedOs.supported-os-template.md";
+
+    /// <summary>
+    /// Loads the template from a file path, or falls back to the embedded resource.
+    /// </summary>
+    public static MarkoutTemplate LoadTemplate(string? templatePath = null)
     {
-        var template = MarkoutTemplate.Load(
-            Path.Combine(AppContext.BaseDirectory, "supported-os-template.md"));
+        if (templatePath is not null)
+            return MarkoutTemplate.Load(templatePath);
+
+        var stream = typeof(SupportedOsGenerator).Assembly.GetManifestResourceStream(EmbeddedTemplateName)
+            ?? throw new InvalidOperationException($"Embedded template not found: {EmbeddedTemplateName}");
+
+        return MarkoutTemplate.Load(stream);
+    }
+
+    /// <summary>
+    /// Writes the built-in template to a stream for customization.
+    /// </summary>
+    public static void ExportTemplate(TextWriter output)
+    {
+        using var stream = typeof(SupportedOsGenerator).Assembly.GetManifestResourceStream(EmbeddedTemplateName)
+            ?? throw new InvalidOperationException($"Embedded template not found: {EmbeddedTemplateName}");
+        using var reader = new StreamReader(stream);
+        output.Write(reader.ReadToEnd());
+    }
+
+    public static async Task GenerateAsync(SupportedOSMatrix matrix, TextWriter output, string version, HttpClient client, string? supportPhase = null, string? releaseType = null, string? templatePath = null)
+    {
+        var template = LoadTemplate(templatePath);
         template.TableOptions = new TableFormatterOptions();
 
         // Inline bindings
