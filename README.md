@@ -20,8 +20,11 @@ Tools are published as [RID-specific NuGet tool packages](https://learn.microsof
 Install from [GitHub Packages](https://github.com/richlander/dotnet-release/pkgs/nuget):
 
 ```bash
-# Add the GitHub Packages source (uses gh CLI for authentication)
+# Add the GitHub Packages source (using gh CLI for authentication)
 dotnet nuget add source https://nuget.pkg.github.com/richlander/index.json --name richlander --username $(gh api user --jq .login) --password $(gh auth token)
+
+# Or manually with a personal access token
+dotnet nuget add source https://nuget.pkg.github.com/richlander/index.json --name richlander --username <GITHUB_USERNAME> --password <GITHUB_TOKEN>
 ```
 
 Install tools globally:
