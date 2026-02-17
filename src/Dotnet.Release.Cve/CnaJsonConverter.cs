@@ -42,10 +42,30 @@ public class CnaJsonConverter : JsonConverter<Cna>
                             impact = reader.GetString();
                             break;
                         case "acknowledgments":
-                            acknowledgments = JsonSerializer.Deserialize<List<string>>(ref reader, options);
+                            acknowledgments = [];
+                            while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
+                            {
+                                acknowledgments.Add(reader.GetString()!);
+                            }
                             break;
                         case "faq":
-                            faq = JsonSerializer.Deserialize<List<CnaFaq>>(ref reader, options);
+                            faq = [];
+                            while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
+                            {
+                                string? question = null, answer = null;
+                                while (reader.Read() && reader.TokenType != JsonTokenType.EndObject)
+                                {
+                                    if (reader.TokenType == JsonTokenType.PropertyName)
+                                    {
+                                        var prop = reader.GetString();
+                                        reader.Read();
+                                        if (prop == "question") question = reader.GetString();
+                                        else if (prop == "answer") answer = reader.GetString();
+                                        else reader.Skip();
+                                    }
+                                }
+                                faq.Add(new CnaFaq(question ?? "", answer ?? ""));
+                            }
                             break;
                         default:
                             reader.Skip();
@@ -70,13 +90,22 @@ public class CnaJsonConverter : JsonConverter<Cna>
             writer.WriteString("impact", value.Impact);
         if (value.Acknowledgments != null && value.Acknowledgments.Count > 0)
         {
-            writer.WritePropertyName("acknowledgments");
-            JsonSerializer.Serialize(writer, value.Acknowledgments, options);
+            writer.WriteStartArray("acknowledgments");
+            foreach (var ack in value.Acknowledgments)
+                writer.WriteStringValue(ack);
+            writer.WriteEndArray();
         }
         if (value.Faq != null && value.Faq.Count > 0)
         {
-            writer.WritePropertyName("faq");
-            JsonSerializer.Serialize(writer, value.Faq, options);
+            writer.WriteStartArray("faq");
+            foreach (var f in value.Faq)
+            {
+                writer.WriteStartObject();
+                writer.WriteString("question", f.Question);
+                writer.WriteString("answer", f.Answer);
+                writer.WriteEndObject();
+            }
+            writer.WriteEndArray();
         }
         writer.WriteEndObject();
     }
