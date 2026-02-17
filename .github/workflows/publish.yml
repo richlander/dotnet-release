@@ -9,9 +9,7 @@ on:
 
 env:
   NUGET_SOURCE: https://nuget.pkg.github.com/richlander/index.json
-  TOOL_PROJECTS: >-
-    src/Dotnet.Release.Tools.SupportedOs/Dotnet.Release.Tools.SupportedOs.csproj
-    src/Dotnet.Release.Tools.LinuxPackages/Dotnet.Release.Tools.LinuxPackages.csproj
+  TOOL_PROJECT: src/Dotnet.Release.Tools/Dotnet.Release.Tools.csproj
 
 jobs:
   # Pack library packages + tool pointer package
@@ -60,10 +58,7 @@ jobs:
           dotnet-quality: 'preview'
 
       - name: Pack AOT (${{ matrix.rid }})
-        run: |
-          for proj in ${{ env.TOOL_PROJECTS }}; do
-            dotnet pack "$proj" -c Release -r ${{ matrix.rid }} -o ./nupkg
-          done
+        run: dotnet pack ${{ env.TOOL_PROJECT }} -c Release -r ${{ matrix.rid }} -o ./nupkg
 
       - uses: actions/upload-artifact@v4
         with:
@@ -82,10 +77,7 @@ jobs:
           dotnet-quality: 'preview'
 
       - name: Pack CoreCLR fallback
-        run: |
-          for proj in ${{ env.TOOL_PROJECTS }}; do
-            dotnet pack "$proj" -c Release -r any -p:PublishAot=false -o ./nupkg
-          done
+        run: dotnet pack ${{ env.TOOL_PROJECT }} -c Release -r any -p:PublishAot=false -o ./nupkg
 
       - uses: actions/upload-artifact@v4
         with:

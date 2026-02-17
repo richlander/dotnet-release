@@ -1,26 +1,24 @@
 using System.Text;
-using System.Text.Json;
-using Dotnet.Release;
 using Dotnet.Release.Support;
 using Markout;
 using Markout.Templates;
 using MarkdownTable.Formatting;
 
-namespace Dotnet.Release.Tools.LinuxPackages;
+namespace Dotnet.Release.Tools;
 
 /// <summary>
-/// Generates linux-packages.md from os-packages.json using a Markout template.
+/// Generates os-packages.md from os-packages.json using a Markout template.
 /// </summary>
-public static class LinuxPackagesGenerator
+public static class OsPackagesGenerator
 {
-    private const string EmbeddedTemplateName = "Dotnet.Release.Tools.LinuxPackages.linux-packages-template.md";
+    private const string EmbeddedTemplateName = "Dotnet.Release.Tools.os-packages-template.md";
 
     public static MarkoutTemplate LoadTemplate(string? templatePath = null)
     {
         if (templatePath is not null)
             return MarkoutTemplate.Load(templatePath);
 
-        var stream = typeof(LinuxPackagesGenerator).Assembly.GetManifestResourceStream(EmbeddedTemplateName)
+        var stream = typeof(OsPackagesGenerator).Assembly.GetManifestResourceStream(EmbeddedTemplateName)
             ?? throw new InvalidOperationException($"Embedded template not found: {EmbeddedTemplateName}");
 
         return MarkoutTemplate.Load(stream);
@@ -28,7 +26,7 @@ public static class LinuxPackagesGenerator
 
     public static void ExportTemplate(TextWriter output)
     {
-        using var stream = typeof(LinuxPackagesGenerator).Assembly.GetManifestResourceStream(EmbeddedTemplateName)
+        using var stream = typeof(OsPackagesGenerator).Assembly.GetManifestResourceStream(EmbeddedTemplateName)
             ?? throw new InvalidOperationException($"Embedded template not found: {EmbeddedTemplateName}");
         using var reader = new StreamReader(stream);
         output.Write(reader.ReadToEnd());

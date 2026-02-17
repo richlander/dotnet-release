@@ -3,9 +3,9 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <PackAsTool>true</PackAsTool>
-    <ToolCommandName>dotnet-linux-packages</ToolCommandName>
-    <PackageId>Dotnet.Release.Tools.LinuxPackages</PackageId>
-    <Description>Generates linux-packages.md from .NET release data</Description>
+    <ToolCommandName>dotnet-release</ToolCommandName>
+    <PackageId>Dotnet.Release.Tools</PackageId>
+    <Description>CLI tools for generating markdown from .NET release data</Description>
     <PublishAot>true</PublishAot>
     <ToolPackageRuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-arm64;any</ToolPackageRuntimeIdentifiers>
   </PropertyGroup>
@@ -19,7 +19,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="linux-packages-template.md" />
+    <EmbeddedResource Include="supported-os-template.md" />
+    <EmbeddedResource Include="os-packages-template.md" />
   </ItemGroup>
 
 </Project>

@@ -3,18 +3,15 @@ using Markout;
 using Markout.Templates;
 using MarkdownTable.Formatting;
 
-namespace Dotnet.Release.Tools.SupportedOs;
+namespace Dotnet.Release.Tools;
 
 /// <summary>
 /// Generates supported-os.md from supported-os.json using a Markout template.
 /// </summary>
 public static class SupportedOsGenerator
 {
-    private const string EmbeddedTemplateName = "Dotnet.Release.Tools.SupportedOs.supported-os-template.md";
+    private const string EmbeddedTemplateName = "Dotnet.Release.Tools.supported-os-template.md";
 
-    /// <summary>
-    /// Loads the template from a file path, or falls back to the embedded resource.
-    /// </summary>
     public static MarkoutTemplate LoadTemplate(string? templatePath = null)
     {
         if (templatePath is not null)
@@ -26,9 +23,6 @@ public static class SupportedOsGenerator
         return MarkoutTemplate.Load(stream);
     }
 
-    /// <summary>
-    /// Writes the built-in template to a stream for customization.
-    /// </summary>
     public static void ExportTemplate(TextWriter output)
     {
         using var stream = typeof(SupportedOsGenerator).Assembly.GetManifestResourceStream(EmbeddedTemplateName)

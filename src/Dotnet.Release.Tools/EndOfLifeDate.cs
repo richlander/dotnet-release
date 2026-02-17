@@ -2,7 +2,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Dotnet.Release.Tools.SupportedOs;
+namespace Dotnet.Release.Tools;
 
 /// <summary>
 /// Client for the endoflife.date API.
