@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Dotnet.Release.Support\Dotnet.Release.Support.csproj" />
+    <ProjectReference Include="..\..\..\markout\src\Markout\Markout.csproj" />
+  </ItemGroup>
+
+</Project>
