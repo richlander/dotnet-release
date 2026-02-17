@@ -1,39 +1,27 @@
-name: Publish NuGet
+name: Publish NuGet Packages
 
 on:
-  release:
-    types: [ published ]
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+  workflow_dispatch:
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
       packages: write
-
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 10.0.x
-        dotnet-quality: preview
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          dotnet-quality: 'preview'
 
-    - name: Restore
-      run: dotnet restore
+      - name: Pack
+        run: dotnet pack DotnetRelease.slnx -c Release -o ./nupkg
 
-    - name: Build
-      run: dotnet build --configuration Release --no-restore
-
-    - name: Test
-      run: dotnet test --configuration Release --no-build
-
-    - name: Pack
-      run: dotnet pack --configuration Release --no-build --output ./artifacts
-
-    - name: Upload NuGet packages
-      uses: actions/upload-artifact@v4
-      with:
-        name: nuget-packages
-        path: ./artifacts/*.nupkg
+      - name: Push to GitHub Packages
+        run: dotnet nuget push ./nupkg/*.nupkg --source "https://nuget.pkg.github.com/richlander/index.json" --api-key ${{ secrets.GITHUB_TOKEN }}
