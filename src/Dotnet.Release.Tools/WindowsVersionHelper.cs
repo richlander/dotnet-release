@@ -1,4 +1,4 @@
-namespace Dotnet.Release.Tools.SupportedOs;
+namespace Dotnet.Release.Tools;
 
 /// <summary>
 /// Helpers for formatting Windows version strings.

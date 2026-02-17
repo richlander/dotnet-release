@@ -9,7 +9,7 @@ on:
 
 env:
   NUGET_SOURCE: https://nuget.pkg.github.com/richlander/index.json
-  TOOL_PROJECT: src/Dotnet.Release.Tools.SupportedOs/Dotnet.Release.Tools.SupportedOs.csproj
+  TOOL_PROJECT: src/Dotnet.Release.Tools/Dotnet.Release.Tools.csproj
 
 jobs:
   # Pack library packages + tool pointer package

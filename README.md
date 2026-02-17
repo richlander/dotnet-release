@@ -30,9 +30,28 @@ dotnet nuget add source https://nuget.pkg.github.com/richlander/index.json --nam
 Install tools globally:
 
 ```bash
-dotnet tool install -g Dotnet.Release.Tools.SupportedOs
+dotnet tool install -g Dotnet.Release.Tools
 ```
 
-| Tool | Install | Description |
-|---|---|---|
-| `dotnet-supported-os` | `dotnet tool install -g Dotnet.Release.Tools.SupportedOs` | Generates supported-os.md from .NET release data |
+### `dotnet-release generate`
+
+Generates markdown files from .NET release JSON data.
+
+| Subcommand | Description |
+|---|---|
+| `dotnet-release generate supported-os <version>` | Generates supported-os.md from supported-os.json |
+| `dotnet-release generate os-packages <version>` | Generates os-packages.md from os-packages.json |
+
+Options:
+
+- `[path-or-url]` — Local path or remote URL (defaults to GitHub release-index branch)
+- `--template <file>` — Use a custom template
+- `--export-template` — Export the built-in template for customization
+
+Examples:
+
+```bash
+dotnet-release generate supported-os 10.0
+dotnet-release generate os-packages 10.0 ~/git/core/release-notes
+dotnet-release generate supported-os --export-template > my-template.md
+```
