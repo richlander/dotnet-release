@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Dotnet.Release.Client</PackageId>
+    <Description>Client library for navigating the .NET release notes graph</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Dotnet.Release.Graph\Dotnet.Release.Graph.csproj" />
+    <ProjectReference Include="..\Dotnet.Release.Cve\Dotnet.Release.Cve.csproj" />
+    <ProjectReference Include="..\Dotnet.Release.Releases\Dotnet.Release.Releases.csproj" />
+    <ProjectReference Include="..\Dotnet.Release.Support\Dotnet.Release.Support.csproj" />
+  </ItemGroup>
+
+</Project>

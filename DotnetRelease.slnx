@@ -5,8 +5,10 @@
     <Project Path="src/Dotnet.Release.Releases/Dotnet.Release.Releases.csproj" />
     <Project Path="src/Dotnet.Release.Cve/Dotnet.Release.Cve.csproj" />
     <Project Path="src/Dotnet.Release.Support/Dotnet.Release.Support.csproj" />
+    <Project Path="src/Dotnet.Release.Client/Dotnet.Release.Client.csproj" />
   </Folder>
   <Folder Name="/test/">
     <Project Path="test/Dotnet.Release.Graph.Tests/Dotnet.Release.Graph.Tests.csproj" />
+    <Project Path="test/Dotnet.Release.Client.Tests/Dotnet.Release.Client.Tests.csproj" />
   </Folder>
 </Solution>

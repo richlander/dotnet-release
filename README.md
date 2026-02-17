@@ -11,3 +11,4 @@
 | `Dotnet.Release.Releases` | Legacy releases.json schema types |
 | `Dotnet.Release.Cve` | CVE disclosure schema types |
 | `Dotnet.Release.Support` | OS support matrix and package types |
+| `Dotnet.Release.Client` | Client library for navigating the release graph |
