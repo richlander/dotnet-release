@@ -9,11 +9,10 @@ namespace Dotnet.Release.Tools.SupportedOs;
 /// </summary>
 public static class SupportedOsGenerator
 {
-    public static void Generate(SupportedOSMatrix matrix, TextWriter output, string version, string? supportPhase = null, string? releaseType = null)
+    public static async Task GenerateAsync(SupportedOSMatrix matrix, TextWriter output, string version, HttpClient client, string? supportPhase = null, string? releaseType = null)
     {
         var writer = new MarkdownWriter();
         int linkIndex = 0;
-        // Track link definitions per-family for output after each section
         List<List<string>> allFamilyLinkDefs = [];
 
         // Title
@@ -40,12 +39,10 @@ public static class SupportedOsGenerator
                     ? "[None](#out-of-support-os-versions)"
                     : string.Join(", ", distroVersions);
 
-                // Distro name link
                 string distroCell = $"[{distro.Name}][{linkIndex}]";
                 familyLinkDefs.Add($"[{linkIndex}]: {distro.Link}");
                 linkIndex++;
 
-                // Lifecycle link
                 string lifecycleCell = distro.Lifecycle is null
                     ? "None"
                     : $"[Lifecycle][{linkIndex}]";
@@ -60,15 +57,12 @@ public static class SupportedOsGenerator
                 if (distro.Notes is { Count: > 0 })
                 {
                     foreach (var note in distro.Notes)
-                    {
                         notes.Add($"{distro.Name}: {note}");
-                    }
                 }
             }
 
             writer.WriteTableEnd();
 
-            // Notes
             if (notes.Count > 0)
             {
                 writer.WriteParagraph("Notes:");
@@ -85,9 +79,7 @@ public static class SupportedOsGenerator
             writer.WriteTableStart("Libc", "Version", "Architectures", "Source");
 
             foreach (var libc in matrix.Libc)
-            {
                 writer.WriteTableRow(libc.Name, libc.Version, string.Join(", ", libc.Architectures), libc.Source);
-            }
 
             writer.WriteTableEnd();
         }
@@ -99,33 +91,82 @@ public static class SupportedOsGenerator
             writer.WriteList(matrix.Notes);
         }
 
-        // Write markdown — split by family sections and interleave link defs
-        string markdown = writer.ToString();
-        output.Write(markdown);
+        // Out of support OS versions section
+        await WriteUnsupportedSectionAsync(writer, matrix.Families, client);
 
-        // Append all link definitions at the end
+        // Write markdown content
+        output.Write(writer.ToString());
+
+        // Append reference link definitions
         if (allFamilyLinkDefs.Any(d => d.Count > 0))
         {
             output.WriteLine();
             foreach (var familyDefs in allFamilyLinkDefs)
             {
                 foreach (var def in familyDefs)
-                {
                     output.WriteLine(def);
-                }
             }
         }
     }
 
-    /// <summary>
-    /// Loads supported-os.json from a URL and generates markdown.
-    /// </summary>
-    public static async Task GenerateFromUrlAsync(string jsonUrl, TextWriter output, string version, string? supportPhase = null, string? releaseType = null)
+    private static async Task WriteUnsupportedSectionAsync(MarkdownWriter writer, IList<SupportFamily> families, HttpClient client)
     {
-        using var client = new HttpClient();
-        using var stream = await client.GetStreamAsync(jsonUrl);
-        var matrix = await JsonSerializer.DeserializeAsync(stream, SupportedOSMatrixSerializerContext.Default.SupportedOSMatrix)
-            ?? throw new InvalidOperationException("Failed to deserialize supported-os.json");
-        Generate(matrix, output, version, supportPhase, releaseType);
+        // Collect all unsupported versions across families
+        var unsupportedEntries = families
+            .SelectMany(f => f.Distributions
+                .SelectMany(d => (d.UnsupportedVersions ?? [])
+                    .Select(v => (Distribution: d, Version: v))));
+
+        if (!unsupportedEntries.Any())
+            return;
+
+        Console.Error.WriteLine("Getting EoL data...");
+
+        // Fetch EOL data in parallel
+        var eolResults = await Task.WhenAll(unsupportedEntries.Select(async entry =>
+        {
+            SupportCycle? cycle = null;
+            try
+            {
+                cycle = await EndOfLifeDate.GetProductCycleAsync(client, entry.Distribution.Id, entry.Version);
+            }
+            catch (HttpRequestException)
+            {
+                Console.Error.WriteLine($"No data found at endoflife.date for: {entry.Distribution.Id} {entry.Version}");
+            }
+            return (entry.Distribution, entry.Version, Cycle: cycle);
+        }));
+
+        var ordered = eolResults
+            .OrderBy(e => e.Distribution.Name)
+            .ThenByDescending(e => e.Cycle?.GetSupportInfo().EolDate ?? DateOnly.MinValue);
+
+        writer.WriteHeading(2, "Out of support OS versions");
+        writer.WriteParagraph("OS versions that are out of support by the OS publisher are not tested or supported by .NET.");
+
+        writer.WriteTableStart("OS", "Version", "End of Life");
+
+        foreach (var entry in ordered)
+        {
+            var distroVersion = entry.Distribution.Name == "Windows"
+                ? WindowsVersionHelper.Prettify(entry.Version)
+                : entry.Version;
+
+            var eolText = FormatEolDate(entry.Cycle);
+            writer.WriteTableRow(entry.Distribution.Name, distroVersion, eolText);
+        }
+
+        writer.WriteTableEnd();
+    }
+
+    private static string FormatEolDate(SupportCycle? cycle)
+    {
+        if (cycle is null) return "-";
+
+        var info = cycle.GetSupportInfo();
+        if (info.EolDate == DateOnly.MinValue) return "-";
+
+        var dateStr = info.EolDate == DateOnly.MaxValue ? "Active" : info.EolDate.ToString("yyyy-MM-dd");
+        return cycle.Link is not null ? $"[{dateStr}]({cycle.Link})" : dateStr;
     }
 }
