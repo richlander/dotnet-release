@@ -7,7 +7,7 @@
     <PackageId>Dotnet.Release.Tools.SupportedOs</PackageId>
     <Description>Generates supported-os.md from .NET release data</Description>
     <PublishAot>true</PublishAot>
-    <ToolPackageRuntimeIdentifiers>linux-x64;linux-arm64;osx-arm64;any</ToolPackageRuntimeIdentifiers>
+    <ToolPackageRuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-arm64;any</ToolPackageRuntimeIdentifiers>
   </PropertyGroup>
 
   <ItemGroup>

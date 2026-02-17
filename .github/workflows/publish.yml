@@ -38,6 +38,10 @@ jobs:
     strategy:
       matrix:
         include:
+          - rid: win-x64
+            os: windows-latest
+          - rid: win-arm64
+            os: windows-latest
           - rid: linux-x64
             os: ubuntu-latest
           - rid: linux-arm64
@@ -100,7 +104,7 @@ jobs:
 
       - name: Push RID-specific packages first
         run: |
-          for pkg in ./nupkg/*.linux-x64.*.nupkg ./nupkg/*.linux-arm64.*.nupkg ./nupkg/*.osx-arm64.*.nupkg ./nupkg/*.any.*.nupkg; do
+          for pkg in ./nupkg/*.win-x64.*.nupkg ./nupkg/*.win-arm64.*.nupkg ./nupkg/*.linux-x64.*.nupkg ./nupkg/*.linux-arm64.*.nupkg ./nupkg/*.osx-arm64.*.nupkg ./nupkg/*.any.*.nupkg; do
             [ -f "$pkg" ] && dotnet nuget push "$pkg" --source "${{ env.NUGET_SOURCE }}" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate || true
           done
 
