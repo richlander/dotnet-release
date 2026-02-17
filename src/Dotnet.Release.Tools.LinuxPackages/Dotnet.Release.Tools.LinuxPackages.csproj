@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>dotnet-linux-packages</ToolCommandName>
+    <PackageId>Dotnet.Release.Tools.LinuxPackages</PackageId>
+    <Description>Generates linux-packages.md from .NET release data</Description>
+    <PublishAot>true</PublishAot>
+    <ToolPackageRuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-arm64;any</ToolPackageRuntimeIdentifiers>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Dotnet.Release.Support\Dotnet.Release.Support.csproj" />
+    <ProjectReference Include="..\Dotnet.Release\Dotnet.Release.csproj" />
+    <PackageReference Include="Markout" Version="0.6.1" />
+    <PackageReference Include="Markout.Templates" Version="0.1.0" />
+    <PackageReference Include="MarkdownTable.Formatting" Version="0.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="linux-packages-template.md" />
+  </ItemGroup>
+
+</Project>

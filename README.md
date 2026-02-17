@@ -36,3 +36,4 @@ dotnet tool install -g Dotnet.Release.Tools.SupportedOs
 | Tool | Install | Description |
 |---|---|---|
 | `dotnet-supported-os` | `dotnet tool install -g Dotnet.Release.Tools.SupportedOs` | Generates supported-os.md from .NET release data |
+| `dotnet-linux-packages` | `dotnet tool install -g Dotnet.Release.Tools.LinuxPackages` | Generates linux-packages.md from .NET release data |

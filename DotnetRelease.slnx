@@ -7,6 +7,7 @@
     <Project Path="src/Dotnet.Release.Support/Dotnet.Release.Support.csproj" />
     <Project Path="src/Dotnet.Release.Client/Dotnet.Release.Client.csproj" />
     <Project Path="src/Dotnet.Release.Tools.SupportedOs/Dotnet.Release.Tools.SupportedOs.csproj" />
+    <Project Path="src/Dotnet.Release.Tools.LinuxPackages/Dotnet.Release.Tools.LinuxPackages.csproj" />
   </Folder>
   <Folder Name="/test/">
     <Project Path="test/Dotnet.Release.Graph.Tests/Dotnet.Release.Graph.Tests.csproj" />
