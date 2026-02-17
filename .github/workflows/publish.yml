@@ -7,8 +7,13 @@ on:
       - 'src/**'
   workflow_dispatch:
 
+env:
+  NUGET_SOURCE: https://nuget.pkg.github.com/richlander/index.json
+  TOOL_PROJECT: src/Dotnet.Release.Tools.SupportedOs/Dotnet.Release.Tools.SupportedOs.csproj
+
 jobs:
-  publish:
+  # Pack library packages + tool pointer package
+  pack-libraries:
     runs-on: ubuntu-latest
     permissions:
       packages: write
@@ -20,8 +25,87 @@ jobs:
           dotnet-version: '10.0.x'
           dotnet-quality: 'preview'
 
-      - name: Pack
+      - name: Pack libraries
         run: dotnet pack DotnetRelease.slnx -c Release -o ./nupkg
 
-      - name: Push to GitHub Packages
-        run: dotnet nuget push ./nupkg/*.nupkg --source "https://nuget.pkg.github.com/richlander/index.json" --api-key ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nupkg-libraries
+          path: ./nupkg/*.nupkg
+
+  # Build AOT tool packages per RID
+  pack-tool-rid:
+    strategy:
+      matrix:
+        include:
+          - rid: linux-x64
+            os: ubuntu-latest
+          - rid: linux-arm64
+            os: ubuntu-latest
+          - rid: osx-arm64
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Pack AOT (${{ matrix.rid }})
+        run: dotnet pack ${{ env.TOOL_PROJECT }} -c Release -r ${{ matrix.rid }} -o ./nupkg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nupkg-${{ matrix.rid }}
+          path: ./nupkg/*.nupkg
+
+  # Pack CoreCLR fallback (any)
+  pack-tool-any:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Pack CoreCLR fallback
+        run: dotnet pack ${{ env.TOOL_PROJECT }} -c Release -r any -p:PublishAot=false -o ./nupkg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nupkg-any
+          path: ./nupkg/*.nupkg
+
+  # Push all packages (RID packages first, then libraries + pointer)
+  publish:
+    needs: [pack-libraries, pack-tool-rid, pack-tool-any]
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: nupkg-*
+          merge-multiple: true
+          path: ./nupkg
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Push RID-specific packages first
+        run: |
+          for pkg in ./nupkg/*.linux-x64.*.nupkg ./nupkg/*.linux-arm64.*.nupkg ./nupkg/*.osx-arm64.*.nupkg ./nupkg/*.any.*.nupkg; do
+            [ -f "$pkg" ] && dotnet nuget push "$pkg" --source "${{ env.NUGET_SOURCE }}" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate || true
+          done
+
+      - name: Push remaining packages
+        run: |
+          for pkg in ./nupkg/*.nupkg; do
+            dotnet nuget push "$pkg" --source "${{ env.NUGET_SOURCE }}" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate || true
+          done
