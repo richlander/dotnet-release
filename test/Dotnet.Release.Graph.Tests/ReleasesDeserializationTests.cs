@@ -6,17 +6,13 @@ namespace Dotnet.Release.Graph.Tests;
 
 public class ReleasesDeserializationTests
 {
-    private static readonly string CoreRoot = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        "git", "core", "release-notes");
+    private static readonly HttpClient Http = new();
 
     [Fact]
-    public void ReleasesIndex_Deserializes()
+    public async Task ReleasesIndex_Deserializes()
     {
-        var path = Path.Combine(CoreRoot, "releases-index.json");
-        Assert.True(File.Exists(path), $"File not found: {path}");
-
-        var json = File.ReadAllText(path);
+        var url = $"{TestConstants.BaseUrl}releases-index.json";
+        var json = await Http.GetStringAsync(url);
         var index = JsonSerializer.Deserialize<MajorReleasesIndex>(json, SerializerOptions.KebabCase);
         Assert.NotNull(index);
         Assert.True(index.ReleasesIndex.Count > 0);

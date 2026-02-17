@@ -6,17 +6,13 @@ namespace Dotnet.Release.Graph.Tests;
 
 public class CveDeserializationTests
 {
-    private static readonly string CoreRoot = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        "git", "core", "release-notes");
+    private static readonly HttpClient Http = new();
 
     [Fact]
-    public void CveRecords_Deserializes()
+    public async Task CveRecords_Deserializes()
     {
-        var path = Path.Combine(CoreRoot, "timeline", "2025", "10", "cve.json");
-        Assert.True(File.Exists(path), $"File not found: {path}");
-
-        var json = File.ReadAllText(path);
+        var url = $"{TestConstants.BaseUrl}timeline/2025/10/cve.json";
+        var json = await Http.GetStringAsync(url);
         var records = JsonSerializer.Deserialize<CveRecords>(json, SerializerOptions.SnakeCase);
         Assert.NotNull(records);
         Assert.NotNull(records.Title);

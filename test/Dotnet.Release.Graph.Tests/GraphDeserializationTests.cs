@@ -5,28 +5,25 @@ using Xunit;
 namespace Dotnet.Release.Graph.Tests;
 
 /// <summary>
-/// Tests that deserialize real JSON files from ~/git/core/release-notes/.
+/// Tests that deserialize real JSON files from dotnet/core release-index branch.
 /// </summary>
 public class GraphDeserializationTests
 {
-    private static readonly string CoreRoot = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        "git", "core", "release-notes");
+    private static readonly HttpClient Http = new();
 
-    private static T Deserialize<T>(string relativePath)
+    private static async Task<T> DeserializeAsync<T>(string relativePath)
     {
-        var path = Path.Combine(CoreRoot, relativePath);
-        Assert.True(File.Exists(path), $"File not found: {path}");
-        var json = File.ReadAllText(path);
+        var url = $"{TestConstants.BaseUrl}{relativePath}";
+        var json = await Http.GetStringAsync(url);
         var result = JsonSerializer.Deserialize<T>(json, SerializerOptions.SnakeCase);
         Assert.NotNull(result);
         return result;
     }
 
     [Fact]
-    public void RootIndex_Deserializes()
+    public async Task RootIndex_Deserializes()
     {
-        var index = Deserialize<MajorReleaseVersionIndex>("index.json");
+        var index = await DeserializeAsync<MajorReleaseVersionIndex>("index.json");
         Assert.Equal(ReleaseKind.Root, index.Kind);
         Assert.NotNull(index.Embedded?.Releases);
         Assert.True(index.Embedded.Releases.Count > 0);
@@ -36,9 +33,9 @@ public class GraphDeserializationTests
     }
 
     [Fact]
-    public void MajorVersionIndex_Deserializes()
+    public async Task MajorVersionIndex_Deserializes()
     {
-        var index = Deserialize<PatchReleaseVersionIndex>("9.0/index.json");
+        var index = await DeserializeAsync<PatchReleaseVersionIndex>("9.0/index.json");
         Assert.Equal(ReleaseKind.Major, index.Kind);
         Assert.NotNull(index.TargetFramework);
         Assert.NotNull(index.LatestPatch);
@@ -49,9 +46,9 @@ public class GraphDeserializationTests
     }
 
     [Fact]
-    public void PatchDetailIndex_Deserializes()
+    public async Task PatchDetailIndex_Deserializes()
     {
-        var index = Deserialize<PatchDetailIndex>("9.0/9.0.0/index.json");
+        var index = await DeserializeAsync<PatchDetailIndex>("9.0/9.0.0/index.json");
         Assert.Equal(ReleaseKind.Patch, index.Kind);
         Assert.Equal("9.0.0", index.Version);
         Assert.NotNull(index.SdkVersion);
@@ -60,9 +57,9 @@ public class GraphDeserializationTests
     }
 
     [Fact]
-    public void Manifest_Deserializes()
+    public async Task Manifest_Deserializes()
     {
-        var manifest = Deserialize<ReleaseManifest>("9.0/manifest.json");
+        var manifest = await DeserializeAsync<ReleaseManifest>("9.0/manifest.json");
         Assert.Equal(ReleaseKind.Manifest, manifest.Kind);
         Assert.Equal("9.0", manifest.Version);
         Assert.NotNull(manifest.TargetFramework);
@@ -71,18 +68,18 @@ public class GraphDeserializationTests
     }
 
     [Fact]
-    public void TimelineIndex_Deserializes()
+    public async Task TimelineIndex_Deserializes()
     {
-        var index = Deserialize<ReleaseHistoryIndex>("timeline/index.json");
+        var index = await DeserializeAsync<ReleaseHistoryIndex>("timeline/index.json");
         Assert.Equal(HistoryKind.Timeline, index.Kind);
         Assert.NotNull(index.Embedded?.Years);
         Assert.True(index.Embedded.Years.Count > 0);
     }
 
     [Fact]
-    public void YearIndex_Deserializes()
+    public async Task YearIndex_Deserializes()
     {
-        var index = Deserialize<HistoryYearIndex>("timeline/2025/index.json");
+        var index = await DeserializeAsync<HistoryYearIndex>("timeline/2025/index.json");
         Assert.Equal(HistoryKind.Year, index.Kind);
         Assert.Equal("2025", index.Year);
         Assert.NotNull(index.Embedded?.Months);
@@ -90,9 +87,9 @@ public class GraphDeserializationTests
     }
 
     [Fact]
-    public void MonthIndex_Deserializes()
+    public async Task MonthIndex_Deserializes()
     {
-        var index = Deserialize<HistoryMonthIndex>("timeline/2025/10/index.json");
+        var index = await DeserializeAsync<HistoryMonthIndex>("timeline/2025/10/index.json");
         Assert.Equal(HistoryKind.Month, index.Kind);
         Assert.Equal("2025", index.Year);
         Assert.Equal("10", index.Month);
@@ -101,9 +98,9 @@ public class GraphDeserializationTests
     }
 
     [Fact]
-    public void TargetFrameworks_Deserializes()
+    public async Task TargetFrameworks_Deserializes()
     {
-        var tf = Deserialize<TargetFrameworksIndex>("9.0/target-frameworks.json");
+        var tf = await DeserializeAsync<TargetFrameworksIndex>("9.0/target-frameworks.json");
         Assert.Equal("9.0", tf.Version);
         Assert.Equal("net9.0", tf.TargetFramework);
         Assert.True(tf.Frameworks.Count > 0);

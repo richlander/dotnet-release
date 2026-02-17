@@ -6,17 +6,13 @@ namespace Dotnet.Release.Graph.Tests;
 
 public class SupportDeserializationTests
 {
-    private static readonly string CoreRoot = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        "git", "core", "release-notes");
+    private static readonly HttpClient Http = new();
 
     [Fact]
-    public void SupportedOSMatrix_Deserializes()
+    public async Task SupportedOSMatrix_Deserializes()
     {
-        var path = Path.Combine(CoreRoot, "9.0", "supported-os.json");
-        Assert.True(File.Exists(path), $"File not found: {path}");
-
-        var json = File.ReadAllText(path);
+        var url = $"{TestConstants.BaseUrl}9.0/supported-os.json";
+        var json = await Http.GetStringAsync(url);
         var matrix = JsonSerializer.Deserialize<SupportedOSMatrix>(json, SerializerOptions.KebabCase);
         Assert.NotNull(matrix);
         Assert.Equal("9.0", matrix.ChannelVersion);
@@ -25,12 +21,10 @@ public class SupportDeserializationTests
     }
 
     [Fact]
-    public void OSPackages_Deserializes()
+    public async Task OSPackages_Deserializes()
     {
-        var path = Path.Combine(CoreRoot, "9.0", "os-packages.json");
-        Assert.True(File.Exists(path), $"File not found: {path}");
-
-        var json = File.ReadAllText(path);
+        var url = $"{TestConstants.BaseUrl}9.0/os-packages.json";
+        var json = await Http.GetStringAsync(url);
         var packages = JsonSerializer.Deserialize<OSPackagesOverview>(json, SerializerOptions.KebabCase);
         Assert.NotNull(packages);
         Assert.Equal("9.0", packages.ChannelVersion);
