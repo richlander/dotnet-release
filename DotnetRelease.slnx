@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Dotnet.Release/Dotnet.Release.csproj" />
+    <Project Path="src/Dotnet.Release.Graph/Dotnet.Release.Graph.csproj" />
+    <Project Path="src/Dotnet.Release.Releases/Dotnet.Release.Releases.csproj" />
+    <Project Path="src/Dotnet.Release.Cve/Dotnet.Release.Cve.csproj" />
+    <Project Path="src/Dotnet.Release.Support/Dotnet.Release.Support.csproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="test/Dotnet.Release.Graph.Tests/Dotnet.Release.Graph.Tests.csproj" />
+  </Folder>
+</Solution>

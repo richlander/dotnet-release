@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Dotnet.Release</PackageId>
+    <Description>Shared types for .NET release data models</Description>
+  </PropertyGroup>
+
+</Project>

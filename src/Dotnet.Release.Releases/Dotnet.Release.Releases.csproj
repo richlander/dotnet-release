@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Dotnet.Release.Releases</PackageId>
+    <Description>Legacy releases.json schema types for .NET release data</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Dotnet.Release\Dotnet.Release.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Dotnet.Release.Graph.Tests</PackageId>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" />
+    <PackageReference Include="xunit" Version="2.*" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Dotnet.Release.Graph\Dotnet.Release.Graph.csproj" />
+    <ProjectReference Include="..\..\src\Dotnet.Release.Cve\Dotnet.Release.Cve.csproj" />
+    <ProjectReference Include="..\..\src\Dotnet.Release.Releases\Dotnet.Release.Releases.csproj" />
+    <ProjectReference Include="..\..\src\Dotnet.Release.Support\Dotnet.Release.Support.csproj" />
+  </ItemGroup>
+
+</Project>
