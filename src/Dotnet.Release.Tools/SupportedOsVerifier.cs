@@ -97,7 +97,18 @@ public static class SupportedOsVerifier
                 eolButSupported.Add(new(cycle.Cycle, FormatEolDate(info.EolDate)));
         }
 
-        return new SupportedOsDistroReport(name, eolButSupported, missing, activeButUnsupported, eolSoon);
+        var buckets = new List<IssueBucket>();
+
+        if (eolButSupported.Count > 0)
+            buckets.Add(new() { Alert = new(CalloutSeverity.Warning, "EOL but still listed as supported — move to unsupported-versions"), Cycles = eolButSupported });
+        if (missing.Count > 0)
+            buckets.Add(new() { Alert = new(CalloutSeverity.Important, "Active releases not listed — consider adding to supported-versions"), Cycles = missing });
+        if (activeButUnsupported.Count > 0)
+            buckets.Add(new() { Alert = new(CalloutSeverity.Tip, "Active releases listed as unsupported — verify this is intentional"), Cycles = activeButUnsupported });
+        if (eolSoon.Count > 0)
+            buckets.Add(new() { Alert = new(CalloutSeverity.Caution, "Supported releases reaching EOL within 3 months"), Cycles = eolSoon });
+
+        return new SupportedOsDistroReport { Name = name, Issues = buckets };
     }
 
     internal static string FormatEolDate(DateOnly date) =>
@@ -125,30 +136,38 @@ public class SupportedOsReport
     [MarkoutPropertyName("Source")]
     public string Source => "endoflife.date API";
 
-    [MarkoutIgnore]
-    public List<SupportedOsFamilyReport> Families { get; set; } = [];
-
     /// <summary>
-    /// Renders the nested family/distro/issue structure via IMarkoutFormattable.
+    /// Renders the nested family/distro structure via IMarkoutFormattable.
+    /// The families/distros need headless nesting (H2/H3 without section headings).
+    /// Issue buckets within each distro use declarative callout + table.
     /// </summary>
     [MarkoutPropertyName("")]
     public SupportedOsReportBody Body => new(Families);
 
     [MarkoutIgnore]
+    public List<SupportedOsFamilyReport> Families { get; set; } = [];
+
+    [MarkoutIgnore]
     public bool HasIssues => Families.Count > 0;
 }
 
-public record SupportedOsFamilyReport(string Name, [property: MarkoutIgnoreInTable] List<SupportedOsDistroReport> Distros);
+public record SupportedOsFamilyReport(string Name, List<SupportedOsDistroReport> Distros);
 
-public record SupportedOsDistroReport(
-    string Name,
-    [property: MarkoutIgnoreInTable] List<CycleIssue> EolButSupported,
-    [property: MarkoutIgnoreInTable] List<CycleIssue> Missing,
-    [property: MarkoutIgnoreInTable] List<CycleIssue> ActiveButUnsupported,
-    [property: MarkoutIgnoreInTable] List<CycleIssue> EolSoon)
+public class SupportedOsDistroReport
 {
-    public bool HasIssues => EolButSupported.Count > 0 || Missing.Count > 0 ||
-                             ActiveButUnsupported.Count > 0 || EolSoon.Count > 0;
+    public string Name { get; set; } = "";
+    public List<IssueBucket> Issues { get; set; } = [];
+
+    public bool HasIssues => Issues.Count > 0;
+}
+
+/// <summary>
+/// A categorized group of cycle issues with a callout describing the problem.
+/// </summary>
+public class IssueBucket
+{
+    public Callout Alert { get; init; }
+    public List<CycleIssue> Cycles { get; init; } = [];
 }
 
 [MarkoutSerializable]
@@ -158,6 +177,8 @@ public record CycleIssue(
 
 /// <summary>
 /// Renders the body of the supported-os verification report.
+/// Families and distros are headless sections (H2/H3 without section headings).
+/// Issue buckets within each distro render as callout + table pairs.
 /// </summary>
 public class SupportedOsReportBody(List<SupportedOsFamilyReport> families) : IMarkoutFormattable
 {
@@ -177,46 +198,20 @@ public class SupportedOsReportBody(List<SupportedOsFamilyReport> families) : IMa
             {
                 writer.WriteHeading(3, distro.Name);
 
-                if (distro.EolButSupported.Count > 0)
+                foreach (var bucket in distro.Issues)
                 {
-                    writer.WriteCallout(CalloutSeverity.Warning,
-                        "EOL but still listed as supported — move to unsupported-versions");
-                    WriteCycleTable(writer, distro.EolButSupported);
-                }
-
-                if (distro.Missing.Count > 0)
-                {
-                    writer.WriteCallout(CalloutSeverity.Important,
-                        "Active releases not listed — consider adding to supported-versions");
-                    WriteCycleTable(writer, distro.Missing);
-                }
-
-                if (distro.ActiveButUnsupported.Count > 0)
-                {
-                    writer.WriteCallout(CalloutSeverity.Tip,
-                        "Active releases listed as unsupported — verify this is intentional");
-                    WriteCycleTable(writer, distro.ActiveButUnsupported);
-                }
-
-                if (distro.EolSoon.Count > 0)
-                {
-                    writer.WriteCallout(CalloutSeverity.Caution,
-                        "Supported releases reaching EOL within 3 months");
-                    WriteCycleTable(writer, distro.EolSoon);
+                    writer.WriteCallout(bucket.Alert.Severity, bucket.Alert.Message);
+                    writer.WriteTableStart("Version", "EOL Date");
+                    foreach (var r in bucket.Cycles)
+                        writer.WriteTableRow(r.Version, r.EolDate);
+                    writer.WriteTableEnd();
                 }
             }
         }
-    }
-
-    static void WriteCycleTable(MarkoutWriter writer, List<CycleIssue> rows)
-    {
-        writer.WriteTableStart("Version", "EOL Date");
-        foreach (var r in rows)
-            writer.WriteTableRow(r.Version, r.EolDate);
-        writer.WriteTableEnd();
     }
 }
 
 [MarkoutContext(typeof(SupportedOsReport))]
 [MarkoutContext(typeof(CycleIssue))]
+[MarkoutContextOptions(SuppressTableWarnings = true)]
 public partial class SupportedOsReportContext : MarkoutSerializerContext { }

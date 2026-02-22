@@ -60,15 +60,15 @@ public static class OsPackagesVerifier
             }
 
             if (issues.Count > 0)
-                distroReports.Add(new(distro.Name, issues));
+                distroReports.Add(new() { Name = distro.Name, Issues = issues });
         }
 
         return new OsPackagesReport
         {
             Version = overview.ChannelVersion,
             GeneratedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm UTC"),
-            PackagesChecked = totalChecked,
-            MissingPackages = totalMissing,
+            PackagesCheckedText = totalChecked.ToString(),
+            MissingPackagesText = totalMissing.ToString(),
             Distros = distroReports
         };
     }
@@ -168,23 +168,27 @@ public class OsPackagesReport
     [MarkoutPropertyName("Generated")]
     public string GeneratedAt { get; set; } = "";
 
-    [MarkoutIgnore]
-    public int PackagesChecked { get; set; }
+    [MarkoutPropertyName("Packages checked")]
+    public string PackagesCheckedText { get; set; } = "";
 
-    [MarkoutIgnore]
-    public int MissingPackages { get; set; }
+    [MarkoutPropertyName("Missing packages")]
+    public string MissingPackagesText { get; set; } = "";
+
+    [MarkoutPropertyName("")]
+    public OsPackagesReportBody Body => new(Distros);
 
     [MarkoutIgnore]
     public List<OsPackagesDistroReport> Distros { get; set; } = [];
-
-    [MarkoutPropertyName("")]
-    public OsPackagesReportBody Body => new(Distros, PackagesChecked, MissingPackages);
 
     [MarkoutIgnore]
     public bool HasIssues => Distros.Count > 0;
 }
 
-public record OsPackagesDistroReport(string Name, [property: MarkoutIgnoreInTable] List<PackageIssue> Issues);
+public class OsPackagesDistroReport
+{
+    public string Name { get; init; } = "";
+    public List<PackageIssue> Issues { get; init; } = [];
+}
 
 [MarkoutSerializable]
 public record PackageIssue(
@@ -193,11 +197,9 @@ public record PackageIssue(
     [property: MarkoutPropertyName("Package Name")] string PackageName);
 
 /// <summary>
-/// Renders the body of the os-packages verification report.
+/// Renders the distro sections with callout + table pairs.
 /// </summary>
-public class OsPackagesReportBody(
-    List<OsPackagesDistroReport> distros, int packagesChecked, int missingPackages)
-    : IMarkoutFormattable
+public class OsPackagesReportBody(List<OsPackagesDistroReport> distros) : IMarkoutFormattable
 {
     public void WriteTo(MarkoutWriter writer)
     {
@@ -211,11 +213,6 @@ public class OsPackagesReportBody(
             writer.WriteTableEnd();
         }
 
-        writer.WriteBlankLine();
-        writer.WriteHeading(2, "Summary");
-        writer.WriteField("Packages checked", packagesChecked.ToString());
-        writer.WriteField("Missing packages", missingPackages.ToString());
-
         if (distros.Count == 0)
             writer.WriteCallout(CalloutSeverity.Note, "All package names verified successfully.");
     }
@@ -223,4 +220,5 @@ public class OsPackagesReportBody(
 
 [MarkoutContext(typeof(OsPackagesReport))]
 [MarkoutContext(typeof(PackageIssue))]
+[MarkoutContextOptions(SuppressTableWarnings = true)]
 public partial class OsPackagesReportContext : MarkoutSerializerContext { }
