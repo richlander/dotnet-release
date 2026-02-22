@@ -138,37 +138,45 @@ public class SupportedOsReport
     [MarkoutPropertyName("Source")]
     public string Source => "endoflife.date API";
 
-    /// <summary>
-    /// Renders the nested family/distro structure via IMarkoutFormattable.
-    /// The families/distros need headless nesting (H2/H3 without section headings).
-    /// Issue buckets within each distro use declarative callout + table.
-    /// </summary>
-    [MarkoutPropertyName("")]
-    public SupportedOsReportBody Body => new(Families);
-
-    [MarkoutIgnore]
+    [MarkoutUnwrap]
     public List<SupportedOsFamilyReport> Families { get; set; } = [];
 
     [MarkoutIgnore]
     public bool HasIssues => Families.Count > 0;
 }
 
-public record SupportedOsFamilyReport(string Name, List<SupportedOsDistroReport> Distros);
+[MarkoutSerializable(TitleProperty = nameof(Name))]
+public class SupportedOsFamilyReport(string Name, List<SupportedOsDistroReport> Distros)
+{
+    [MarkoutIgnore] public string Name { get; } = Name;
 
+    [MarkoutUnwrap]
+    public List<SupportedOsDistroReport> Distros { get; } = Distros;
+}
+
+[MarkoutSerializable(TitleProperty = nameof(Name))]
 public class SupportedOsDistroReport
 {
-    public string Name { get; set; } = "";
+    [MarkoutIgnore] public string Name { get; set; } = "";
+
+    [MarkoutUnwrap]
     public List<IssueBucket> Issues { get; set; } = [];
 
+    [MarkoutIgnore]
     public bool HasIssues => Issues.Count > 0;
 }
 
 /// <summary>
 /// A categorized group of cycle issues with a callout describing the problem.
+/// Rendered inline (no heading) — the callout provides context.
 /// </summary>
+[MarkoutSerializable]
 public class IssueBucket
 {
+    [MarkoutIgnoreInTable]
     public required Callout Alert { get; init; }
+
+    [MarkoutSection(Name = "")]
     public List<CycleIssue> Cycles { get; init; } = [];
 }
 
@@ -176,42 +184,6 @@ public class IssueBucket
 public record CycleIssue(
     string Version,
     [property: MarkoutPropertyName("EOL Date")] string EolDate);
-
-/// <summary>
-/// Renders the body of the supported-os verification report.
-/// Families and distros are headless sections (H2/H3 without section headings).
-/// Issue buckets within each distro render as callout + table pairs.
-/// </summary>
-public class SupportedOsReportBody(List<SupportedOsFamilyReport> families) : IMarkoutFormattable
-{
-    public void WriteTo(MarkoutWriter writer)
-    {
-        if (families.Count == 0)
-        {
-            writer.WriteCallout(CalloutSeverity.Note, "All distributions are up to date.");
-            return;
-        }
-
-        foreach (var family in families)
-        {
-            writer.WriteHeading(2, family.Name);
-
-            foreach (var distro in family.Distros)
-            {
-                writer.WriteHeading(3, distro.Name);
-
-                foreach (var bucket in distro.Issues)
-                {
-                    writer.WriteCallout(bucket.Alert.Severity, bucket.Alert.Message);
-                    writer.WriteTableStart("Version", "EOL Date");
-                    foreach (var r in bucket.Cycles)
-                        writer.WriteTableRow(r.Version, r.EolDate);
-                    writer.WriteTableEnd();
-                }
-            }
-        }
-    }
-}
 
 [MarkoutContext(typeof(SupportedOsReport))]
 [MarkoutContext(typeof(CycleIssue))]

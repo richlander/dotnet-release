@@ -191,19 +191,22 @@ public class OsPackagesReport
     [MarkoutPropertyName("Missing packages")]
     public string MissingPackagesText { get; set; } = "";
 
-    [MarkoutPropertyName("")]
-    public OsPackagesReportBody Body => new(Distros);
-
-    [MarkoutIgnore]
+    [MarkoutUnwrap]
     public List<OsPackagesDistroReport> Distros { get; set; } = [];
 
     [MarkoutIgnore]
     public bool HasIssues => Distros.Count > 0;
 }
 
+[MarkoutSerializable(TitleProperty = nameof(Name))]
 public class OsPackagesDistroReport
 {
-    public string Name { get; init; } = "";
+    [MarkoutIgnore] public string Name { get; init; } = "";
+
+    [MarkoutIgnoreInTable]
+    public Callout Alert { get; init; } = new(CalloutSeverity.Warning, "Package names not found in distro archive");
+
+    [MarkoutSection(Name = "")]
     public List<PackageIssue> Issues { get; init; } = [];
 }
 
@@ -212,28 +215,6 @@ public record PackageIssue(
     string Release,
     [property: MarkoutPropertyName("Package ID")] string PackageId,
     [property: MarkoutPropertyName("Package Name")] string PackageName);
-
-/// <summary>
-/// Renders the distro sections with callout + table pairs.
-/// </summary>
-public class OsPackagesReportBody(List<OsPackagesDistroReport> distros) : IMarkoutFormattable
-{
-    public void WriteTo(MarkoutWriter writer)
-    {
-        foreach (var distro in distros)
-        {
-            writer.WriteHeading(2, distro.Name);
-            writer.WriteCallout(CalloutSeverity.Warning, "Package names not found in distro archive");
-            writer.WriteTableStart("Release", "Package ID", "Package Name");
-            foreach (var issue in distro.Issues)
-                writer.WriteTableRow(issue.Release, issue.PackageId, issue.PackageName);
-            writer.WriteTableEnd();
-        }
-
-        if (distros.Count == 0)
-            writer.WriteCallout(CalloutSeverity.Note, "All package names verified successfully.");
-    }
-}
 
 [MarkoutContext(typeof(OsPackagesReport))]
 [MarkoutContext(typeof(PackageIssue))]
