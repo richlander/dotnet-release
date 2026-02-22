@@ -96,8 +96,8 @@
       "endoflife_id": "nixos",
       "dotnet_feeds": {
         "nixpkgs": {
-          "type": "nixpkgs_github",
-          "url": "https://api.github.com/repos/NixOS/nixpkgs/contents/pkgs/development/compilers/dotnet/{major}?ref=nixos-{version}"
+          "type": "nixpkgs_search",
+          "url": "https://search.nixos.org/backend/nixos-*-{version}*/_search"
         }
       }
     }

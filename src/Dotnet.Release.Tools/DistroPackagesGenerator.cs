@@ -186,8 +186,8 @@ public static class DistroPackagesGenerator
                     case "brew_formula":
                         await CheckBrewFormulaAsync(source, feedName, feed, major, minor, http, log, results);
                         break;
-                    case "nixpkgs_github":
-                        await CheckNixpkgsAsync(source, feedName, feed, major, minor, http, log, results);
+                    case "nixpkgs_search":
+                        await CheckNixpkgsSearchAsync(source, feedName, feed, major, minor, http, log, results);
                         break;
                 }
             }
@@ -293,7 +293,10 @@ public static class DistroPackagesGenerator
         }
     }
 
-    static async Task CheckNixpkgsAsync(
+    /// <summary>
+    /// Queries NixOS package search (Elasticsearch) for .NET packages across active NixOS versions.
+    /// </summary>
+    static async Task CheckNixpkgsSearchAsync(
         DistroSource source, string feedName, DotnetFeed feed,
         string major, string minor, HttpClient http, TextWriter log,
         Dictionary<string, Dictionary<string, List<DotnetDistroPackage>>> results)
@@ -323,18 +326,77 @@ public static class DistroPackagesGenerator
             return;
         }
 
+        // Map component pnames to our component IDs
+        var componentMap = new Dictionary<string, string>
+        {
+            { "dotnet-sdk-wrapped", "sdk" },
+            { "dotnet-runtime-wrapped", "runtime" },
+            { "dotnet-aspnetcore-runtime-wrapped", "aspnetcore-runtime" },
+        };
+
         foreach (var version in nixVersions)
         {
-            string url = DistroSource.ResolveFeedUrl(feed.Url, version, null, major, minor);
             string distroKey = $"NixOS {version}";
+            string url = DistroSource.ResolveFeedUrl(feed.Url, version, null, major, minor);
 
-            log.Write($"  [{feedName}] {distroKey} dotnet{major}... ");
+            log.Write($"  [{feedName}] {distroKey} dotnet {major}... ");
+
+            // Query ES: find packages with pname starting with "dotnet-" and version starting with "{major}."
+            string query = $$"""
+            {
+                "query": {
+                    "bool": {
+                        "filter": [
+                            { "prefix": { "package_pname": "dotnet-" } },
+                            { "prefix": { "package_pversion": "{{major}}." } }
+                        ]
+                    }
+                },
+                "size": 50,
+                "_source": ["package_attr_name", "package_pname", "package_pversion"]
+            }
+            """;
+
             try
             {
-                using var response = await http.GetAsync(url);
+                using var content = new StringContent(query, System.Text.Encoding.UTF8, "application/json");
+                using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
+                    "Basic", Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("aWVSALXpZv:X8gPHnzL52wFEekuxsfQ9cSh")));
+
+                using var response = await http.SendAsync(request);
                 if (!response.IsSuccessStatusCode) { log.WriteLine("not found"); continue; }
 
-                log.WriteLine("FOUND");
+                using var stream = await response.Content.ReadAsStreamAsync();
+                using var doc = await JsonDocument.ParseAsync(stream);
+
+                var hits = doc.RootElement.GetProperty("hits").GetProperty("hits");
+                if (hits.GetArrayLength() == 0) { log.WriteLine("not found"); continue; }
+
+                // Deduplicate by pname, prefer top-level attr names (e.g. dotnet-sdk_9 over dotnetCorePackages.sdk_9_0-bin)
+                var seen = new Dictionary<string, (string attr, string version)>();
+                foreach (var hit in hits.EnumerateArray())
+                {
+                    var src = hit.GetProperty("_source");
+                    string pname = src.GetProperty("package_pname").GetString()!;
+                    string attr = src.GetProperty("package_attr_name").GetString()!;
+                    string ver = src.GetProperty("package_pversion").GetString() ?? "";
+
+                    if (!seen.ContainsKey(pname) || !attr.Contains('.'))
+                        seen[pname] = (attr, ver);
+                }
+
+                // Map to our components
+                var packages = new List<DotnetDistroPackage>();
+                foreach (var (pname, (attr, ver)) in seen)
+                {
+                    if (componentMap.TryGetValue(pname, out string? componentId))
+                        packages.Add(new DotnetDistroPackage(componentId, attr, ver));
+                }
+
+                if (packages.Count == 0) { log.WriteLine("no matching components"); continue; }
+
+                log.WriteLine($"FOUND ({packages.Count} components, e.g. {packages[0].PackageName} {packages[0].Version})");
 
                 if (!results.TryGetValue(distroKey, out var feeds))
                 {
@@ -342,19 +404,12 @@ public static class DistroPackagesGenerator
                     results[distroKey] = feeds;
                 }
 
-                feeds[feedName] =
-                [
-                    new DotnetDistroPackage("sdk", $"dotnet-sdk_{major}", null),
-                    new DotnetDistroPackage("runtime", $"dotnet-runtime_{major}", null),
-                    new DotnetDistroPackage("aspnetcore-runtime", $"dotnet-aspnetcore_{major}", null),
-                ];
+                feeds[feedName] = packages;
             }
             catch (Exception ex)
             {
                 log.WriteLine($"ERROR: {ex.Message}");
             }
-
-            await Task.Delay(200);
         }
     }
 
