@@ -81,6 +81,8 @@ public static class SupportedOsVerifier
 
         foreach (var cycle in cycles)
         {
+            if (cycle.Cycle is null) continue;
+
             var info = cycle.GetSupportInfo();
             bool isActive = info.IsActive;
             bool isSupported = distro.SupportedVersions.Contains(cycle.Cycle);
@@ -166,7 +168,7 @@ public class SupportedOsDistroReport
 /// </summary>
 public class IssueBucket
 {
-    public Callout Alert { get; init; }
+    public required Callout Alert { get; init; }
     public List<CycleIssue> Cycles { get; init; } = [];
 }
 

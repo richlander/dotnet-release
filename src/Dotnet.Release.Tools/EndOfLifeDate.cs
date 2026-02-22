@@ -25,7 +25,11 @@ public static class EndOfLifeDate
         => client.GetFromJsonAsync($"{BaseUrl}{product}/{cycle}.json", EolSerializerContext.Default.SupportCycle);
 }
 
-public record SupportCycle(string Cycle, string Codename, DateOnly ReleaseDate, string? Link)
+public record SupportCycle(
+    string? Cycle = null,
+    string? Codename = null,
+    DateOnly ReleaseDate = default,
+    string? Link = null)
 {
     [JsonConverter(typeof(EolStringConverter))]
     public string? Eol { get; set; }

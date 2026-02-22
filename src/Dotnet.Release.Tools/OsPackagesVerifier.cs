@@ -33,30 +33,39 @@ public static class OsPackagesVerifier
             }
 
             var issues = new List<PackageIssue>();
+            int totalErrors = 0;
 
             foreach (var release in distro.Releases)
             {
                 log.Write($"  Checking {release.Name}... ");
                 int found = 0;
                 int missing = 0;
+                int errors = 0;
 
                 foreach (var pkg in release.Packages)
                 {
                     totalChecked++;
-                    bool exists = await checker(client, distro.Name, release.Release, pkg.Name, log);
-                    if (exists)
+                    var result = await checker(client, distro.Name, release.Release, pkg.Name, log);
+                    switch (result)
                     {
-                        found++;
-                    }
-                    else
-                    {
-                        missing++;
-                        totalMissing++;
-                        issues.Add(new(release.Name, pkg.Id, pkg.Name));
+                        case PackageCheckResult.Found:
+                            found++;
+                            break;
+                        case PackageCheckResult.NotFound:
+                            missing++;
+                            totalMissing++;
+                            issues.Add(new(release.Name, pkg.Id, pkg.Name));
+                            break;
+                        case PackageCheckResult.Error:
+                            errors++;
+                            totalErrors++;
+                            break;
                     }
                 }
 
-                log.WriteLine($"{found} ok, {missing} missing");
+                var parts = $"{found} ok, {missing} missing";
+                if (errors > 0) parts += $", {errors} errors";
+                log.WriteLine(parts);
             }
 
             if (issues.Count > 0)
@@ -73,7 +82,7 @@ public static class OsPackagesVerifier
         };
     }
 
-    static Func<HttpClient, string, string, string, TextWriter, Task<bool>>? GetChecker(string distroName) =>
+    static Func<HttpClient, string, string, string, TextWriter, Task<PackageCheckResult>>? GetChecker(string distroName) =>
         distroName switch
         {
             "Ubuntu" => CheckUbuntuPackageAsync,
@@ -84,11 +93,11 @@ public static class OsPackagesVerifier
     /// <summary>
     /// Check if a package exists in Ubuntu's archive via Launchpad API (binary packages).
     /// </summary>
-    static async Task<bool> CheckUbuntuPackageAsync(
+    static async Task<PackageCheckResult> CheckUbuntuPackageAsync(
         HttpClient client, string distro, string release, string packageName, TextWriter log)
     {
         string? series = MapUbuntuSeries(release);
-        if (series is null) return true;
+        if (series is null) return PackageCheckResult.Found; // Can't verify, assume ok
 
         string encodedName = Uri.EscapeDataString(packageName);
         string url = $"https://api.launchpad.net/1.0/ubuntu/+archive/primary?ws.op=getPublishedBinaries&binary_name={encodedName}&exact_match=true&distro_arch_series=https://api.launchpad.net/1.0/ubuntu/{series}/amd64&status=Published&ws.size=1";
@@ -96,38 +105,44 @@ public static class OsPackagesVerifier
         try
         {
             using var response = await client.GetAsync(url);
-            if (!response.IsSuccessStatusCode) return true;
+            if (!response.IsSuccessStatusCode)
+            {
+                log.Write($"[HTTP {(int)response.StatusCode}] ");
+                return PackageCheckResult.Error;
+            }
 
             using var stream = await response.Content.ReadAsStreamAsync();
             using var doc = await System.Text.Json.JsonDocument.ParseAsync(stream);
             int total = doc.RootElement.GetProperty("total_size").GetInt32();
-            return total > 0;
+            return total > 0 ? PackageCheckResult.Found : PackageCheckResult.NotFound;
         }
-        catch
+        catch (Exception ex)
         {
-            return true;
+            log.Write($"[{ex.GetType().Name}] ");
+            return PackageCheckResult.Error;
         }
     }
 
     /// <summary>
     /// Check if a binary package exists in Debian via packages.debian.org.
     /// </summary>
-    static async Task<bool> CheckDebianPackageAsync(
+    static async Task<PackageCheckResult> CheckDebianPackageAsync(
         HttpClient client, string distro, string release, string packageName, TextWriter log)
     {
         string? codename = MapDebianCodename(release);
-        if (codename is null) return true;
+        if (codename is null) return PackageCheckResult.Found;
 
         string url = $"https://packages.debian.org/{codename}/{packageName}";
 
         try
         {
             string html = await client.GetStringAsync(url);
-            return !html.Contains("No such package");
+            return html.Contains("No such package") ? PackageCheckResult.NotFound : PackageCheckResult.Found;
         }
-        catch
+        catch (Exception ex)
         {
-            return true;
+            log.Write($"[{ex.GetType().Name}] ");
+            return PackageCheckResult.Error;
         }
     }
 
@@ -151,6 +166,8 @@ public static class OsPackagesVerifier
         _ => null
     };
 }
+
+enum PackageCheckResult { Found, NotFound, Error }
 
 // --- Report models ---
 
