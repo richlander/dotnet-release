@@ -11,28 +11,20 @@ public static class SupportedOsVerifier
 {
     /// <summary>
     /// Verifies all distros in supported-os.json against endoflife.date lifecycle data.
-    /// Writes a Markout-formatted report to the output writer.
+    /// Returns a serializable report model.
     /// </summary>
-    public static async Task VerifyAsync(
+    public static async Task<SupportedOsReport> VerifyAsync(
         SupportedOSMatrix matrix,
         HttpClient client,
-        TextWriter output,
         TextWriter log)
     {
-        var writer = new MarkoutWriter(output);
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var threeMonths = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(3));
-
-        writer.WriteHeading(1, $".NET {matrix.ChannelVersion} — Supported OS Verification");
-        writer.WriteField("Generated", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm UTC"));
-        writer.WriteField("Source", "endoflife.date API");
-        writer.WriteBlankLine();
-
-        bool hasIssues = false;
+        var families = new List<SupportedOsFamilyReport>();
 
         foreach (var family in matrix.Families)
         {
-            var familyIssues = new List<DistroVerification>();
+            var distros = new List<SupportedOsDistroReport>();
 
             foreach (var distro in family.Distributions)
             {
@@ -55,39 +47,37 @@ public static class SupportedOsVerifier
                     continue;
                 }
 
-                var verification = Classify(distro, cycles, today, threeMonths);
-                if (verification.HasIssues)
-                    familyIssues.Add(verification);
+                var report = Classify(distro.Name, distro, cycles, today, threeMonths);
+                if (report.HasIssues)
+                    distros.Add(report);
             }
 
-            if (familyIssues.Count > 0)
-            {
-                hasIssues = true;
-                writer.WriteHeading(2, family.Name);
-
-                foreach (var v in familyIssues)
-                    WriteDistroReport(writer, v);
-            }
+            if (distros.Count > 0)
+                families.Add(new(family.Name, distros));
         }
 
-        if (!hasIssues)
+        return new SupportedOsReport
         {
-            writer.WriteCallout(CalloutSeverity.Note, "All distributions are up to date.");
-        }
-
-        writer.Flush();
+            Version = matrix.ChannelVersion,
+            GeneratedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm UTC"),
+            Families = families
+        };
     }
 
     /// <summary>
     /// Classifies each distro cycle into action buckets.
     /// </summary>
-    static DistroVerification Classify(
+    static SupportedOsDistroReport Classify(
+        string name,
         SupportDistribution distro,
         IList<SupportCycle> cycles,
         DateOnly today,
         DateOnly threeMonths)
     {
-        var result = new DistroVerification(distro.Name);
+        var eolButSupported = new List<CycleIssue>();
+        var missing = new List<CycleIssue>();
+        var activeButUnsupported = new List<CycleIssue>();
+        var eolSoon = new List<CycleIssue>();
 
         foreach (var cycle in cycles)
         {
@@ -98,84 +88,135 @@ public static class SupportedOsVerifier
             bool isListed = isSupported || isUnsupported;
 
             if (isActive && isSupported && info.EolDate < threeMonths)
-            {
-                // Active, supported, but EOL within 3 months
-                result.EolSoon.Add(new(cycle.Cycle, info.EolDate));
-            }
+                eolSoon.Add(new(cycle.Cycle, FormatEolDate(info.EolDate)));
             else if (isActive && isUnsupported)
-            {
-                // Active in the wild but we list it as unsupported — should we add it?
-                result.ActiveButUnsupported.Add(new(cycle.Cycle, info.EolDate));
-            }
+                activeButUnsupported.Add(new(cycle.Cycle, FormatEolDate(info.EolDate)));
             else if (isActive && !isListed)
-            {
-                // Active release we don't list at all — might need adding
-                result.Missing.Add(new(cycle.Cycle, info.EolDate, cycle.ReleaseDate));
-            }
+                missing.Add(new(cycle.Cycle, FormatEolDate(info.EolDate)));
             else if (!isActive && isSupported)
-            {
-                // Past EOL but we still list as supported — should move to unsupported
-                result.EolButSupported.Add(new(cycle.Cycle, info.EolDate));
-            }
+                eolButSupported.Add(new(cycle.Cycle, FormatEolDate(info.EolDate)));
         }
 
-        return result;
+        return new SupportedOsDistroReport(name, eolButSupported, missing, activeButUnsupported, eolSoon);
     }
 
-    static string FormatEolDate(DateOnly date) =>
+    internal static string FormatEolDate(DateOnly date) =>
         date == DateOnly.MaxValue ? "Active" :
         date == DateOnly.MinValue ? "Unknown" :
         date.ToString("yyyy-MM-dd");
+}
 
-    static void WriteDistroReport(MarkoutWriter writer, DistroVerification v)
+// --- Report models ---
+
+/// <summary>
+/// Top-level verification report, serializable via Markout.
+/// </summary>
+[MarkoutSerializable(TitleProperty = nameof(Title))]
+public class SupportedOsReport
+{
+    [MarkoutIgnore]
+    public string Version { get; set; } = "";
+
+    public string Title => $".NET {Version} — Supported OS Verification";
+
+    [MarkoutPropertyName("Generated")]
+    public string GeneratedAt { get; set; } = "";
+
+    [MarkoutPropertyName("Source")]
+    public string Source => "endoflife.date API";
+
+    [MarkoutIgnore]
+    public List<SupportedOsFamilyReport> Families { get; set; } = [];
+
+    /// <summary>
+    /// Renders the nested family/distro/issue structure via IMarkoutFormattable.
+    /// </summary>
+    [MarkoutPropertyName("")]
+    public SupportedOsReportBody Body => new(Families);
+
+    [MarkoutIgnore]
+    public bool HasIssues => Families.Count > 0;
+}
+
+public record SupportedOsFamilyReport(string Name, [property: MarkoutIgnoreInTable] List<SupportedOsDistroReport> Distros);
+
+public record SupportedOsDistroReport(
+    string Name,
+    [property: MarkoutIgnoreInTable] List<CycleIssue> EolButSupported,
+    [property: MarkoutIgnoreInTable] List<CycleIssue> Missing,
+    [property: MarkoutIgnoreInTable] List<CycleIssue> ActiveButUnsupported,
+    [property: MarkoutIgnoreInTable] List<CycleIssue> EolSoon)
+{
+    public bool HasIssues => EolButSupported.Count > 0 || Missing.Count > 0 ||
+                             ActiveButUnsupported.Count > 0 || EolSoon.Count > 0;
+}
+
+[MarkoutSerializable]
+public record CycleIssue(
+    string Version,
+    [property: MarkoutPropertyName("EOL Date")] string EolDate);
+
+/// <summary>
+/// Renders the body of the supported-os verification report.
+/// </summary>
+public class SupportedOsReportBody(List<SupportedOsFamilyReport> families) : IMarkoutFormattable
+{
+    public void WriteTo(MarkoutWriter writer)
     {
-        writer.WriteHeading(3, v.Name);
-
-        if (v.EolButSupported.Count > 0)
+        if (families.Count == 0)
         {
-            writer.WriteCallout(CalloutSeverity.Warning, "EOL but still listed as supported — move to unsupported-versions");
-            writer.WriteTableStart("Version", "EOL Date");
-            foreach (var e in v.EolButSupported)
-                writer.WriteTableRow(e.Cycle, FormatEolDate(e.EolDate));
-            writer.WriteTableEnd();
+            writer.WriteCallout(CalloutSeverity.Note, "All distributions are up to date.");
+            return;
         }
 
-        if (v.Missing.Count > 0)
+        foreach (var family in families)
         {
-            writer.WriteCallout(CalloutSeverity.Important, "Active releases not listed — consider adding to supported-versions");
-            writer.WriteTableStart("Version", "EOL Date");
-            foreach (var e in v.Missing)
-                writer.WriteTableRow(e.Cycle, FormatEolDate(e.EolDate));
-            writer.WriteTableEnd();
-        }
+            writer.WriteHeading(2, family.Name);
 
-        if (v.ActiveButUnsupported.Count > 0)
-        {
-            writer.WriteCallout(CalloutSeverity.Tip, "Active releases listed as unsupported — verify this is intentional");
-            writer.WriteTableStart("Version", "EOL Date");
-            foreach (var e in v.ActiveButUnsupported)
-                writer.WriteTableRow(e.Cycle, FormatEolDate(e.EolDate));
-            writer.WriteTableEnd();
-        }
+            foreach (var distro in family.Distros)
+            {
+                writer.WriteHeading(3, distro.Name);
 
-        if (v.EolSoon.Count > 0)
-        {
-            writer.WriteCallout(CalloutSeverity.Caution, "Supported releases reaching EOL within 3 months");
-            writer.WriteTableStart("Version", "EOL Date");
-            foreach (var e in v.EolSoon)
-                writer.WriteTableRow(e.Cycle, FormatEolDate(e.EolDate));
-            writer.WriteTableEnd();
+                if (distro.EolButSupported.Count > 0)
+                {
+                    writer.WriteCallout(CalloutSeverity.Warning,
+                        "EOL but still listed as supported — move to unsupported-versions");
+                    WriteCycleTable(writer, distro.EolButSupported);
+                }
+
+                if (distro.Missing.Count > 0)
+                {
+                    writer.WriteCallout(CalloutSeverity.Important,
+                        "Active releases not listed — consider adding to supported-versions");
+                    WriteCycleTable(writer, distro.Missing);
+                }
+
+                if (distro.ActiveButUnsupported.Count > 0)
+                {
+                    writer.WriteCallout(CalloutSeverity.Tip,
+                        "Active releases listed as unsupported — verify this is intentional");
+                    WriteCycleTable(writer, distro.ActiveButUnsupported);
+                }
+
+                if (distro.EolSoon.Count > 0)
+                {
+                    writer.WriteCallout(CalloutSeverity.Caution,
+                        "Supported releases reaching EOL within 3 months");
+                    WriteCycleTable(writer, distro.EolSoon);
+                }
+            }
         }
+    }
+
+    static void WriteCycleTable(MarkoutWriter writer, List<CycleIssue> rows)
+    {
+        writer.WriteTableStart("Version", "EOL Date");
+        foreach (var r in rows)
+            writer.WriteTableRow(r.Version, r.EolDate);
+        writer.WriteTableEnd();
     }
 }
 
-record DistroVerification(string Name)
-{
-    public List<CycleIssue> EolButSupported { get; } = [];
-    public List<CycleIssue> Missing { get; } = [];
-    public List<CycleIssue> ActiveButUnsupported { get; } = [];
-    public List<CycleIssue> EolSoon { get; } = [];
-    public bool HasIssues => EolButSupported.Count > 0 || Missing.Count > 0 || ActiveButUnsupported.Count > 0 || EolSoon.Count > 0;
-}
-
-record CycleIssue(string Cycle, DateOnly EolDate, DateOnly ReleaseDate = default);
+[MarkoutContext(typeof(SupportedOsReport))]
+[MarkoutContext(typeof(CycleIssue))]
+public partial class SupportedOsReportContext : MarkoutSerializerContext { }

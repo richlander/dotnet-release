@@ -226,7 +226,9 @@ async Task<int> HandleVerifyAsync(string[] args)
             ?? throw new InvalidOperationException("Failed to deserialize supported-os.json");
 
         Console.Error.WriteLine($"Verifying .NET {version} supported OS matrix...");
-        await SupportedOsVerifier.VerifyAsync(matrix, client, Console.Out, Console.Error);
+        var report = await SupportedOsVerifier.VerifyAsync(matrix, client, Console.Error);
+        var ctx = new SupportedOsReportContext();
+        ctx.Serialize(report, Console.Out);
     }
     else
     {
@@ -238,7 +240,9 @@ async Task<int> HandleVerifyAsync(string[] args)
             ?? throw new InvalidOperationException("Failed to deserialize os-packages.json");
 
         Console.Error.WriteLine($"Verifying .NET {version} OS packages...");
-        await OsPackagesVerifier.VerifyAsync(overview, client, Console.Out, Console.Error);
+        var report = await OsPackagesVerifier.VerifyAsync(overview, client, Console.Error);
+        var ctx = new OsPackagesReportContext();
+        ctx.Serialize(report, Console.Out);
     }
 
     return 0;

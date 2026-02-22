@@ -11,24 +11,17 @@ public static class OsPackagesVerifier
 {
     /// <summary>
     /// Verifies all package names in os-packages.json against distro archives.
-    /// Writes a Markout-formatted report to the output writer.
+    /// Returns a serializable report model.
     /// </summary>
-    public static async Task VerifyAsync(
+    public static async Task<OsPackagesReport> VerifyAsync(
         OSPackagesOverview overview,
         HttpClient client,
-        TextWriter output,
         TextWriter log,
         PkgsOrgClient? pkgsOrg = null)
     {
-        var writer = new MarkoutWriter(output);
-
-        writer.WriteHeading(1, $".NET {overview.ChannelVersion} — OS Packages Verification");
-        writer.WriteField("Generated", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm UTC"));
-        writer.WriteBlankLine();
-
         int totalChecked = 0;
         int totalMissing = 0;
-        bool hasIssues = false;
+        var distroReports = new List<OsPackagesDistroReport>();
 
         foreach (var distro in overview.Distributions)
         {
@@ -39,7 +32,7 @@ public static class OsPackagesVerifier
                 continue;
             }
 
-            var distroIssues = new List<PackageIssue>();
+            var issues = new List<PackageIssue>();
 
             foreach (var release in distro.Releases)
             {
@@ -59,34 +52,25 @@ public static class OsPackagesVerifier
                     {
                         missing++;
                         totalMissing++;
-                        distroIssues.Add(new(release.Name, pkg.Id, pkg.Name));
+                        issues.Add(new(release.Name, pkg.Id, pkg.Name));
                     }
                 }
 
                 log.WriteLine($"{found} ok, {missing} missing");
             }
 
-            if (distroIssues.Count > 0)
-            {
-                hasIssues = true;
-                writer.WriteHeading(2, distro.Name);
-                writer.WriteCallout(CalloutSeverity.Warning, "Package names not found in distro archive");
-                writer.WriteTableStart("Release", "Package ID", "Package Name");
-                foreach (var issue in distroIssues)
-                    writer.WriteTableRow(issue.Release, issue.PackageId, issue.PackageName);
-                writer.WriteTableEnd();
-            }
+            if (issues.Count > 0)
+                distroReports.Add(new(distro.Name, issues));
         }
 
-        writer.WriteBlankLine();
-        writer.WriteHeading(2, "Summary");
-        writer.WriteField("Packages checked", totalChecked.ToString());
-        writer.WriteField("Missing packages", totalMissing.ToString());
-
-        if (!hasIssues)
-            writer.WriteCallout(CalloutSeverity.Note, "All package names verified successfully.");
-
-        writer.Flush();
+        return new OsPackagesReport
+        {
+            Version = overview.ChannelVersion,
+            GeneratedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm UTC"),
+            PackagesChecked = totalChecked,
+            MissingPackages = totalMissing,
+            Distros = distroReports
+        };
     }
 
     static Func<HttpClient, string, string, string, TextWriter, Task<bool>>? GetChecker(string distroName) =>
@@ -168,4 +152,75 @@ public static class OsPackagesVerifier
     };
 }
 
-record PackageIssue(string Release, string PackageId, string PackageName);
+// --- Report models ---
+
+/// <summary>
+/// Top-level os-packages verification report, serializable via Markout.
+/// </summary>
+[MarkoutSerializable(TitleProperty = nameof(Title))]
+public class OsPackagesReport
+{
+    [MarkoutIgnore]
+    public string Version { get; set; } = "";
+
+    public string Title => $".NET {Version} — OS Packages Verification";
+
+    [MarkoutPropertyName("Generated")]
+    public string GeneratedAt { get; set; } = "";
+
+    [MarkoutIgnore]
+    public int PackagesChecked { get; set; }
+
+    [MarkoutIgnore]
+    public int MissingPackages { get; set; }
+
+    [MarkoutIgnore]
+    public List<OsPackagesDistroReport> Distros { get; set; } = [];
+
+    [MarkoutPropertyName("")]
+    public OsPackagesReportBody Body => new(Distros, PackagesChecked, MissingPackages);
+
+    [MarkoutIgnore]
+    public bool HasIssues => Distros.Count > 0;
+}
+
+public record OsPackagesDistroReport(string Name, [property: MarkoutIgnoreInTable] List<PackageIssue> Issues);
+
+[MarkoutSerializable]
+public record PackageIssue(
+    string Release,
+    [property: MarkoutPropertyName("Package ID")] string PackageId,
+    [property: MarkoutPropertyName("Package Name")] string PackageName);
+
+/// <summary>
+/// Renders the body of the os-packages verification report.
+/// </summary>
+public class OsPackagesReportBody(
+    List<OsPackagesDistroReport> distros, int packagesChecked, int missingPackages)
+    : IMarkoutFormattable
+{
+    public void WriteTo(MarkoutWriter writer)
+    {
+        foreach (var distro in distros)
+        {
+            writer.WriteHeading(2, distro.Name);
+            writer.WriteCallout(CalloutSeverity.Warning, "Package names not found in distro archive");
+            writer.WriteTableStart("Release", "Package ID", "Package Name");
+            foreach (var issue in distro.Issues)
+                writer.WriteTableRow(issue.Release, issue.PackageId, issue.PackageName);
+            writer.WriteTableEnd();
+        }
+
+        writer.WriteBlankLine();
+        writer.WriteHeading(2, "Summary");
+        writer.WriteField("Packages checked", packagesChecked.ToString());
+        writer.WriteField("Missing packages", missingPackages.ToString());
+
+        if (distros.Count == 0)
+            writer.WriteCallout(CalloutSeverity.Note, "All package names verified successfully.");
+    }
+}
+
+[MarkoutContext(typeof(OsPackagesReport))]
+[MarkoutContext(typeof(PackageIssue))]
+public partial class OsPackagesReportContext : MarkoutSerializerContext { }
