@@ -21,6 +21,11 @@ if (command == "query")
     return await HandleQueryAsync(args);
 }
 
+if (command == "verify")
+{
+    return await HandleVerifyAsync(args);
+}
+
 if (command != "generate")
 {
     PrintUsage();
@@ -160,6 +165,7 @@ static void PrintUsage()
 {
     Console.Error.WriteLine("Usage: dotnet-release generate <type> <version> [path-or-url] [--template <file>]");
     Console.Error.WriteLine("       dotnet-release generate <type> --export-template");
+    Console.Error.WriteLine("       dotnet-release verify <type> <version> [path-or-url]");
     Console.Error.WriteLine("       dotnet-release query distro-packages --dotnet-version <ver> [--output <file>]");
     Console.Error.WriteLine();
     Console.Error.WriteLine("Types: supported-os, os-packages");
@@ -169,12 +175,73 @@ static void PrintUsage()
     Console.Error.WriteLine("  dotnet-release generate os-packages 10.0");
     Console.Error.WriteLine("  dotnet-release generate supported-os 10.0 ~/git/core/release-notes");
     Console.Error.WriteLine("  dotnet-release generate os-packages --export-template > my-template.md");
-    Console.Error.WriteLine("  dotnet-release generate supported-os 10.0 --template my-template.md");
+    Console.Error.WriteLine("  dotnet-release verify supported-os 10.0");
+    Console.Error.WriteLine("  dotnet-release verify supported-os 10.0 ~/git/core/release-notes");
+    Console.Error.WriteLine("  dotnet-release verify os-packages 10.0");
+    Console.Error.WriteLine("  dotnet-release verify os-packages 10.0 ~/git/core/release-notes");
     Console.Error.WriteLine("  dotnet-release query distro-packages --dotnet-version 9.0");
     Console.Error.WriteLine("  dotnet-release query distro-packages --dotnet-version 9.0 --output distro-packages.json");
     Console.Error.WriteLine();
     Console.Error.WriteLine("Environment variables:");
     Console.Error.WriteLine("  PKGS_ORG_TOKEN  API token for pkgs.org (Gold+ subscription required)");
+}
+
+async Task<int> HandleVerifyAsync(string[] args)
+{
+    if (args.Length < 3)
+    {
+        PrintUsage();
+        return 1;
+    }
+
+    string verifyType = args[1];
+
+    if (verifyType is not "supported-os" and not "os-packages")
+    {
+        Console.Error.WriteLine($"Unknown verify type: {verifyType}");
+        PrintUsage();
+        return 1;
+    }
+
+    if (!decimal.TryParse(args[2], out _))
+    {
+        Console.Error.WriteLine($"Invalid version: {args[2]}");
+        PrintUsage();
+        return 1;
+    }
+
+    string version = args[2];
+    string basePath = args.Length > 3 && !args[3].StartsWith('-') ? args[3] : "https://raw.githubusercontent.com/dotnet/core/release-index/release-notes/";
+
+    using var client = new HttpClient();
+    var path = AdaptivePath.Create(basePath, client);
+
+    if (verifyType == "supported-os")
+    {
+        string jsonPath = path.Combine(version, "supported-os.json");
+        Console.Error.WriteLine($"Reading {jsonPath}...");
+
+        using var stream = await path.GetStreamAsync(jsonPath);
+        var matrix = await System.Text.Json.JsonSerializer.DeserializeAsync(stream, SupportedOSMatrixSerializerContext.Default.SupportedOSMatrix)
+            ?? throw new InvalidOperationException("Failed to deserialize supported-os.json");
+
+        Console.Error.WriteLine($"Verifying .NET {version} supported OS matrix...");
+        await SupportedOsVerifier.VerifyAsync(matrix, client, Console.Out, Console.Error);
+    }
+    else
+    {
+        string jsonPath = path.Combine(version, "os-packages.json");
+        Console.Error.WriteLine($"Reading {jsonPath}...");
+
+        using var stream = await path.GetStreamAsync(jsonPath);
+        var overview = await System.Text.Json.JsonSerializer.DeserializeAsync(stream, OSPackagesSerializerContext.Default.OSPackagesOverview)
+            ?? throw new InvalidOperationException("Failed to deserialize os-packages.json");
+
+        Console.Error.WriteLine($"Verifying .NET {version} OS packages...");
+        await OsPackagesVerifier.VerifyAsync(overview, client, Console.Out, Console.Error);
+    }
+
+    return 0;
 }
 
 async Task<int> HandleQueryAsync(string[] args)

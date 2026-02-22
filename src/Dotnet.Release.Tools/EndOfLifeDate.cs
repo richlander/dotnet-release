@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 
 namespace Dotnet.Release.Tools;
 
@@ -11,6 +12,15 @@ public static class EndOfLifeDate
 {
     private const string BaseUrl = "https://endoflife.date/api/";
 
+    /// <summary>
+    /// Gets all support cycles for a product (e.g. "ubuntu", "fedora").
+    /// </summary>
+    public static Task<IList<SupportCycle>?> GetProductAsync(HttpClient client, string product)
+        => client.GetFromJsonAsync($"{BaseUrl}{product}.json", EolSerializerContext.Default.IListSupportCycle);
+
+    /// <summary>
+    /// Gets a single support cycle for a product version.
+    /// </summary>
     public static Task<SupportCycle?> GetProductCycleAsync(HttpClient client, string product, string cycle)
         => client.GetFromJsonAsync($"{BaseUrl}{product}/{cycle}.json", EolSerializerContext.Default.SupportCycle);
 }
@@ -55,8 +65,9 @@ public class EolStringConverter : JsonConverter<string>
         => writer.WriteStringValue(value);
 }
 
-[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.KebabCaseLower)]
+[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(SupportCycle))]
+[JsonSerializable(typeof(IList<SupportCycle>))]
 internal partial class EolSerializerContext : JsonSerializerContext
 {
 }
