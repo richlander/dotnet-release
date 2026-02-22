@@ -13,13 +13,9 @@
   <ItemGroup>
     <ProjectReference Include="..\Dotnet.Release.Support\Dotnet.Release.Support.csproj" />
     <ProjectReference Include="..\Dotnet.Release\Dotnet.Release.csproj" />
-    <ProjectReference Include="..\..\..\markout\src\Markout\Markout.csproj" />
-    <ProjectReference Include="..\..\..\markout\src\Markout.Templates\Markout.Templates.csproj" />
-    <ProjectReference Include="..\..\..\markout\src\MarkdownTable.Formatting\MarkdownTable.Formatting.csproj" />
-    <ProjectReference Include="..\..\..\markout\src\Markout.SourceGeneration\Markout.SourceGeneration.csproj"
-                      PrivateAssets="all"
-                      ReferenceOutputAssembly="false"
-                      OutputItemType="Analyzer" />
+    <PackageReference Include="Markout" Version="0.7.3" />
+    <PackageReference Include="Markout.Templates" Version="0.1.0" />
+    <PackageReference Include="MarkdownTable.Formatting" Version="0.1.0" />
   </ItemGroup>
 
   <ItemGroup>
