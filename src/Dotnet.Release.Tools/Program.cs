@@ -60,7 +60,7 @@ if (args.Length < 3 || !decimal.TryParse(args[2], out _))
 }
 
 string version = args[2];
-string basePath = "https://raw.githubusercontent.com/dotnet/core/release-index/release-notes/";
+string basePath = "https://raw.githubusercontent.com/dotnet/core/main/release-notes/";
 string? templatePath = null;
 
 // Parse remaining args
@@ -211,7 +211,7 @@ async Task<int> HandleVerifyAsync(string[] args)
     }
 
     string version = args[2];
-    string basePath = args.Length > 3 && !args[3].StartsWith('-') ? args[3] : "https://raw.githubusercontent.com/dotnet/core/release-index/release-notes/";
+    string basePath = args.Length > 3 && !args[3].StartsWith('-') ? args[3] : "https://raw.githubusercontent.com/dotnet/core/main/release-notes/";
 
     using var client = new HttpClient();
     var path = AdaptivePath.Create(basePath, client);
