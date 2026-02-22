@@ -17,3 +17,11 @@ public partial class OSPackagesSerializerContext : JsonSerializerContext
 public partial class SupportedOSMatrixSerializerContext : JsonSerializerContext
 {
 }
+
+[JsonSourceGenerationOptions(
+    PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower,
+    WriteIndented = true)]
+[JsonSerializable(typeof(DistroPackagesOverview))]
+public partial class DistroPackagesSerializerContext : JsonSerializerContext
+{
+}

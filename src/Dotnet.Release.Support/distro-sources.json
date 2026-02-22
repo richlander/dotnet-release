@@ -1,0 +1,105 @@
+{
+  "sources": [
+    {
+      "name": "Ubuntu",
+      "endoflife_id": "ubuntu",
+      "codenames": {
+        "26.04": "resolute",
+        "25.10": "questing",
+        "25.04": "plucky",
+        "24.04": "noble",
+        "22.04": "jammy"
+      },
+      "docker_image": "ubuntu:{version}",
+      "dotnet_package_pattern": "dotnet-{component}-{major}.{minor}",
+      "dotnet_feeds": {
+        "backports": {
+          "type": "launchpad",
+          "url": "https://api.launchpad.net/1.0/~dotnet/+archive/ubuntu/backports?ws.op=getPublishedSources&source_name=dotnet{major}&exact_match=false&distro_series=https://api.launchpad.net/1.0/ubuntu/{codename}&status=Published"
+        }
+      }
+    },
+    {
+      "name": "Alpine",
+      "endoflife_id": "alpine",
+      "docker_image": "alpine:{version}",
+      "dotnet_package_pattern": "dotnet{major}-{component}"
+    },
+    {
+      "name": "Fedora",
+      "endoflife_id": "fedora",
+      "docker_image": "fedora:{version}",
+      "dotnet_package_pattern": "dotnet-{component}-{major}.{minor}"
+    },
+    {
+      "name": "RHEL",
+      "endoflife_id": "rhel",
+      "dotnet_package_pattern": "dotnet-{component}-{major}.{minor}"
+    },
+    {
+      "name": "CentOS Stream",
+      "endoflife_id": "centos-stream",
+      "dotnet_package_pattern": "dotnet-{component}-{major}.{minor}"
+    },
+    {
+      "name": "AlmaLinux",
+      "endoflife_id": "almalinux",
+      "dotnet_package_pattern": "dotnet-{component}-{major}.{minor}"
+    },
+    {
+      "name": "Rocky Linux",
+      "endoflife_id": "rocky-linux",
+      "dotnet_package_pattern": "dotnet-{component}-{major}.{minor}"
+    },
+    {
+      "name": "Oracle Linux",
+      "endoflife_id": "oracle-linux",
+      "dotnet_package_pattern": "dotnet-{component}-{major}.{minor}"
+    },
+    {
+      "name": "Amazon Linux",
+      "endoflife_id": "amazon-linux",
+      "dotnet_package_pattern": "dotnet-{component}-{major}.{minor}"
+    },
+    {
+      "name": "OpenMandriva",
+      "dotnet_package_pattern": "dotnet-{component}-{major}.{minor}"
+    },
+    {
+      "name": "ALT Linux",
+      "dotnet_package_pattern": "dotnet-{component}-{major}.{minor}"
+    },
+    {
+      "name": "Arch Linux",
+      "dotnet_package_pattern": "dotnet-{component}"
+    },
+    {
+      "name": "Wolfi",
+      "dotnet_package_pattern": "dotnet-{major}-{component}"
+    },
+    {
+      "name": "FreeBSD",
+      "endoflife_id": "freebsd",
+      "dotnet_package_pattern": "dotnet-{component}-{major}.{minor}"
+    },
+    {
+      "name": "Homebrew",
+      "dotnet_feeds": {
+        "core": {
+          "type": "brew_formula",
+          "url": "https://formulae.brew.sh/api/formula/dotnet@{major}.json"
+        }
+      }
+    },
+    {
+      "name": "NixOS",
+      "endoflife_id": "nixos",
+      "dotnet_feeds": {
+        "nixpkgs": {
+          "type": "nixpkgs_github",
+          "url": "https://api.github.com/repos/NixOS/nixpkgs/contents/pkgs/development/compilers/dotnet/{major}?ref=nixos-{version}"
+        }
+      }
+    }
+  ]
+}

@@ -9,4 +9,8 @@
     <ProjectReference Include="..\Dotnet.Release\Dotnet.Release.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="distro-sources.json" />
+  </ItemGroup>
+
 </Project>
