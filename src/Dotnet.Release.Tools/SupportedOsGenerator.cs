@@ -177,7 +177,7 @@ public static class SupportedOsGenerator
                 if (notes.Count > 0)
                 {
                     writer.WriteParagraph("Notes:");
-                    writer.WriteList(notes);
+                    writer.WriteList(notes.ToArray());
                 }
             }
         }
@@ -206,7 +206,7 @@ public static class SupportedOsGenerator
     {
         public void WriteTo(MarkoutWriter writer)
         {
-            writer.WriteList(notes);
+            writer.WriteList(notes.ToArray());
         }
     }
 
