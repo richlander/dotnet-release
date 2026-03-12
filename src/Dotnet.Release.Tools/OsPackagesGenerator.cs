@@ -89,7 +89,7 @@ public static class OsPackagesGenerator
                 items.Add(linkRef);
             }
 
-            writer.WriteList(items);
+            writer.WriteList(items.ToArray());
 
             // Note about globalization invariant mode
             writer.WriteParagraph("You do not need to install ICU if you [enable globalization invariant mode](https://github.com/dotnet/runtime/blob/main/docs/design/features/globalization-invariant-mode.md#enabling-the-invariant-mode).");
