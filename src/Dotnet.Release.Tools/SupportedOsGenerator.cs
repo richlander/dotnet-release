@@ -62,16 +62,7 @@ public static class SupportedOsGenerator
         // Render through MarkdownWriter
         var options = new MarkoutWriterOptions { PrettyTables = true };
         template.SkipUnboundPlaceholders = true;
-        output.Write(template.Render(options));
-
-        // Append reference link definitions (outside the writer pipeline)
-        var linkDefs = familiesBinding.GetLinkDefinitions();
-        if (linkDefs.Count > 0)
-        {
-            output.WriteLine();
-            foreach (var def in linkDefs)
-                output.WriteLine(def);
-        }
+        output.WriteLine(template.Render(options));
     }
 
     private static async Task<UnsupportedBinding?> CreateUnsupportedBindingAsync(
@@ -125,13 +116,10 @@ public static class SupportedOsGenerator
     /// </summary>
     private class FamiliesBinding(IList<SupportFamily> families) : IMarkoutFormattable
     {
-        private readonly List<string> _linkDefs = [];
-
-        public List<string> GetLinkDefinitions() => _linkDefs;
-
         public void WriteTo(MarkoutWriter writer)
         {
             int linkIndex = 0;
+            List<string> linkDefs = [];
 
             foreach (var family in families)
             {
@@ -151,7 +139,7 @@ public static class SupportedOsGenerator
                         : string.Join(", ", distroVersions);
 
                     string distroCell = $"[{distro.Name}][{linkIndex}]";
-                    _linkDefs.Add($"[{linkIndex}]: {distro.Link}");
+                    linkDefs.Add($"[{linkIndex}]: {distro.Link}");
                     linkIndex++;
 
                     string lifecycleCell = distro.Lifecycle is null
@@ -159,7 +147,7 @@ public static class SupportedOsGenerator
                         : $"[Lifecycle][{linkIndex}]";
                     if (distro.Lifecycle is not null)
                     {
-                        _linkDefs.Add($"[{linkIndex}]: {distro.Lifecycle}");
+                        linkDefs.Add($"[{linkIndex}]: {distro.Lifecycle}");
                         linkIndex++;
                     }
 
@@ -180,6 +168,8 @@ public static class SupportedOsGenerator
                     writer.WriteList(notes.ToArray());
                 }
             }
+
+            writer.WriteLinkDefinitions(linkDefs.ToArray());
         }
     }
 
