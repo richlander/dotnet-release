@@ -11,7 +11,7 @@ An agent audits the .NET supported OS matrix against upstream lifecycle data and
 
 ### Flow
 
-```
+```text
 verify → early-out if clean → update JSON → regenerate markdown → PR
 ```
 
