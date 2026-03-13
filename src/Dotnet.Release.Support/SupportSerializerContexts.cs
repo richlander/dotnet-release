@@ -25,3 +25,12 @@ public partial class SupportedOSMatrixSerializerContext : JsonSerializerContext
 public partial class DistroPackagesSerializerContext : JsonSerializerContext
 {
 }
+
+[JsonSourceGenerationOptions(
+    PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower,
+    WriteIndented = true,
+    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
+[JsonSerializable(typeof(DistroPackageFile))]
+public partial class DistroPackageFileSerializerContext : JsonSerializerContext
+{
+}

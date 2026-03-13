@@ -5,8 +5,9 @@ using Dotnet.Release.Tools;
 
 // Usage: dotnet-release generate <type> <version> [path-or-url] [--template <file>]
 //        dotnet-release generate <type> --export-template
+//        dotnet-release verify <type> <version> [path-or-url]
 //        dotnet-release query distro-packages --dotnet-version <ver> [--output <file>]
-// Types: supported-os, os-packages
+// Types: supported-os, os-packages, distro-packages
 
 if (args.Length < 2)
 {
@@ -85,6 +86,8 @@ switch (type)
         return await GenerateSupportedOsAsync(path, version, client, templatePath);
     case "os-packages":
         return await GenerateOsPackagesAsync(path, version, client, templatePath);
+    case "distro-packages":
+        return await GenerateDistroPackageFilesAsync(path, version, client);
     default:
         Console.Error.WriteLine($"Unknown type: {type}");
         PrintUsage();
@@ -156,6 +159,62 @@ async Task<int> GenerateOsPackagesAsync(IAdaptivePath path, string version, Http
         var info = new FileInfo(outputPath);
         Console.Error.WriteLine($"Generated {info.Length} bytes");
         Console.Error.WriteLine(info.FullName);
+    }
+
+    return 0;
+}
+
+async Task<int> GenerateDistroPackageFilesAsync(IAdaptivePath path, string version, HttpClient client)
+{
+    // Read os-packages.json (required — provides dependencies)
+    string osJsonPath = path.Combine(version, "os-packages.json");
+    Console.Error.WriteLine($"Reading {osJsonPath}...");
+
+    using var osStream = await path.GetStreamAsync(osJsonPath);
+    var osPackages = await JsonSerializer.DeserializeAsync(osStream, OSPackagesSerializerContext.Default.OSPackagesOverview)
+        ?? throw new InvalidOperationException("Failed to deserialize os-packages.json");
+
+    // Try to read distro-packages query results (optional — enriches with dotnet package info)
+    DistroPackagesOverview? distroPackages = null;
+    string distroJsonPath = path.Combine(version, "distro-packages.json");
+
+    try
+    {
+        using var distroStream = await path.GetStreamAsync(distroJsonPath);
+        distroPackages = await JsonSerializer.DeserializeAsync(distroStream, DistroPackagesSerializerContext.Default.DistroPackagesOverview);
+        Console.Error.WriteLine($"Read {distroJsonPath} (enriching with dotnet package data)");
+    }
+    catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException or HttpRequestException)
+    {
+        Console.Error.WriteLine("No distro-packages.json found (generating dependencies only)");
+    }
+
+    // Generate per-distro files
+    var files = DistroPackageFileGenerator.Generate(osPackages, distroPackages);
+
+    if (path.SupportsLocalPaths)
+    {
+        string outputDir = path.Combine(version, "distro-packages");
+        DistroPackageFileGenerator.WriteToDirectory(files, outputDir);
+
+        Console.Error.WriteLine($"Generated {files.Count} files in {Path.GetFullPath(outputDir)}/");
+        foreach (var (fileName, _) in files)
+        {
+            Console.Error.WriteLine($"  {fileName}.json");
+        }
+    }
+    else
+    {
+        // When reading from URL, write all files to stdout as a JSON array
+        Console.Out.Write('[');
+        for (int i = 0; i < files.Count; i++)
+        {
+            if (i > 0) Console.Out.Write(',');
+            var json = JsonSerializer.Serialize(files[i].file,
+                DistroPackageFileSerializerContext.Default.DistroPackageFile);
+            Console.Out.Write(json);
+        }
+        Console.Out.WriteLine(']');
     }
 
     return 0;
