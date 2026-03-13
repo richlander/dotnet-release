@@ -1,6 +1,6 @@
 ---
 name: update-supported-os
-description: Audit and update supported-os.json files in dotnet/core to reflect current OS version support. Checks upstream distro lifecycle data to add new releases and retire end-of-life versions.
+description: Audit and update supported-os.json files in dotnet/core to reflect current OS version support. Uses dotnet-release verify for automated checking against upstream lifecycle data.
 ---
 
 # Update Supported OS
@@ -15,11 +15,7 @@ Audit and update `supported-os.json` files in the [dotnet/core](https://github.c
 
 ## Prerequisites
 
-Install the `dotnet-release` tool (see [README](../../README.md) for NuGet source setup):
-
-```bash
-dotnet tool install -g Dotnet.Release.Tools
-```
+The `dotnet-release` tool is installed globally. Run `dotnet-release --help` to confirm.
 
 ## Inputs
 
@@ -30,55 +26,112 @@ The user provides:
 
 ## Process
 
-### 1. Identify scope
+### 1. Verify — check for issues (early out)
 
-Determine which .NET versions to audit. For each version, read `release-notes/{version}/supported-os.json`.
+Run the verify command for each .NET version to audit:
 
-### 2. Check upstream lifecycle data
+```bash
+dotnet-release verify supported-os <version> [path-or-url]
+```
 
-For each Linux distribution in the support matrix:
+Examples:
+```bash
+# Check against live data on GitHub (default)
+dotnet-release verify supported-os 10.0
 
-1. Query [endoflife.date](https://endoflife.date/api/{distro-id}.json) using `web_fetch` to get current lifecycle data
-2. Compare against what's listed in supported-os.json
-3. Identify:
-   - **New releases** — versions that exist upstream but aren't in supported-os.json
-   - **EOL versions** — versions listed as supported that have reached end-of-life
-   - **Upcoming EOL** — versions approaching end-of-life (informational)
+# Check against a local clone
+dotnet-release verify supported-os 10.0 ~/git/core/release-notes
+```
 
-The `id` field in each distribution entry matches the endoflife.date product ID (e.g. `alpine`, `ubuntu`, `debian`, `fedora`, `rhel`).
+**Interpret the exit code:**
+- **Exit code 0** — No issues found. Stop here — nothing to do.
+- **Exit code 2** — Issues found. The report is written to stdout as markdown. Proceed to step 2.
 
-### 3. Determine .NET version applicability
+The report uses GitHub callout blocks to categorize issues:
 
-Not every OS release applies to every .NET version:
-- **LTS .NET versions** (8.0, 10.0) support a broader set of OS versions
-- **STS .NET versions** (9.0, 11.0) have a shorter support window
-- New OS versions are typically only added to .NET versions still in active support
-- Check the .NET version's own support status before adding OS versions to it
+| Callout | Meaning | Action |
+|---------|---------|--------|
+| `> [!WARNING]` | EOL but still listed as supported | Move to `unsupported-versions` |
+| `> [!IMPORTANT]` | Active release not listed | Consider adding to `supported-versions` |
+| `> [!TIP]` | Active but listed as unsupported | Verify this is intentional (no action usually needed) |
+| `> [!CAUTION]` | Approaching EOL within 3 months | Informational — no immediate action |
 
-Present findings to the user with recommendations, grouped by action type.
+See [references/verify-output-example.md](references/verify-output-example.md) for example output.
 
-### 4. Apply changes
+If all versions return exit code 0, the matrix is current. **Stop here.**
 
-On user confirmation:
+### 2. Determine scope of changes
 
-- **Add new supported versions**: Insert into the `supported-versions` array (keep sorted, newest first)
-- **Retire EOL versions**: Move from `supported-versions` to `unsupported-versions`
-- **Update `last-updated`**: Set to today's date
+Review the verify report and decide which issues to act on:
+
+- **WARNING items** (EOL but supported) — always fix these
+- **IMPORTANT items** (missing active releases) — add unless there's a known reason to exclude
+- **TIP items** (active but unsupported) — usually intentional, skip unless the user says otherwise
+- **CAUTION items** (approaching EOL) — informational only, no JSON changes needed
+
+Present findings to the user with recommendations before making changes.
+
+### 3. Apply changes to supported-os.json
+
+For each confirmed change, edit `release-notes/<version>/supported-os.json`:
+
+- **Move EOL versions**: Remove from `supported-versions`, add to `unsupported-versions`
+- **Add new versions**: Insert into `supported-versions` (keep sorted, newest first)
+- **Update `last-updated`**: Set to today's date (format: `YYYY-MM-DD`)
 - Use the `edit` tool for surgical JSON changes
+- Versions are strings, not numbers — `"3.22"` not `3.22`
 
-### 5. Cross-reference with os-packages.json
+### 4. Regenerate markdown
 
-After updating supported-os.json, check if any newly added distro versions need entries in os-packages.json. If so, inform the user to run the `update-os-packages` skill next.
+After updating the JSON, regenerate the markdown file:
 
-### 6. Verify and commit
+```bash
+dotnet-release generate supported-os <version> <core-path>/release-notes
+```
 
-1. Validate all modified JSON files parse correctly (use a file-based app to deserialize with `Dotnet.Release.Support` types)
-2. Regenerate the supported-os.md if the `dotnet-release` tool is available:
+This overwrites `supported-os.md` with content derived from the updated JSON.
+
+> **Important:** Do not hand-edit `supported-os.md`. It is generated from JSON by the tool. If the markdown output needs to change, update the generator or its Markout template instead.
+
+### 5. Run markdownlint
+
+Before committing, verify the generated markdown passes linting:
+
+```bash
+markdownlint -c .github/linters/.markdown-lint.yml release-notes/<version>/supported-os.md
+```
+
+The dotnet/core CI runs [markdownlint](https://github.com/DavidAnson/markdownlint) via super-linter. If linting fails, fix the generator or Markout library — do not patch the markdown by hand.
+
+### 6. Cross-reference with os-packages.json
+
+Check if any newly added distro versions need entries in `os-packages.json`. If so, inform the user to run the `update-os-packages` skill next.
+
+### 7. Validate changes
+
+1. Run verify again to confirm issues are resolved:
    ```bash
-   dotnet-release generate supported-os {version} {core-path}/release-notes
+   dotnet-release verify supported-os <version> <core-path>/release-notes
    ```
-3. Show the user a summary of changes
-4. On confirmation, commit with a descriptive message
+   Expect exit code 0 (or only TIP/CAUTION items remaining).
+
+2. Validate the JSON parses correctly (use a file-based app to deserialize with `Dotnet.Release.Support` types if needed).
+
+### 8. Create PR
+
+1. Create a branch:
+   ```bash
+   git checkout -b update-supported-os-<date>
+   ```
+2. Commit all changed files (`supported-os.json` and `supported-os.md` for each version):
+   ```bash
+   git add release-notes/*/supported-os.json release-notes/*/supported-os.md
+   git commit -m "Update supported OS matrix — <summary of changes>"
+   ```
+3. Push and open a PR against `dotnet/core`:
+   ```bash
+   gh pr create --title "Update supported OS matrix" --body "<description of changes>"
+   ```
 
 ## Key facts
 

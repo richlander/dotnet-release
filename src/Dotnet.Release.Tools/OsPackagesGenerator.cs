@@ -48,16 +48,7 @@ public static class OsPackagesGenerator
         // Render
         var options = new MarkoutWriterOptions { PrettyTables = true };
         template.SkipUnboundPlaceholders = true;
-        output.Write(template.Render(options));
-
-        // Append reference link definitions
-        var linkDefs = overviewBinding.GetLinkDefinitions();
-        if (linkDefs.Count > 0)
-        {
-            output.WriteLine();
-            foreach (var def in linkDefs)
-                output.WriteLine(def);
-        }
+        output.WriteLine(template.Render(options));
     }
 
     /// <summary>
@@ -65,26 +56,23 @@ public static class OsPackagesGenerator
     /// </summary>
     private class OverviewBinding(IList<Package> packages) : IMarkoutFormattable
     {
-        private readonly List<string> _linkDefs = [];
-        private int _linkIndex;
-
-        public List<string> GetLinkDefinitions() => _linkDefs;
-
         public void WriteTo(MarkoutWriter writer)
         {
             var items = new List<string>();
+            var linkDefs = new List<string>();
+            int linkIndex = 0;
 
             foreach (var package in packages)
             {
-                string linkRef = $"[{package.Name}][{_linkIndex}]";
+                string linkRef = $"[{package.Name}][{linkIndex}]";
 
                 // Use first reference as the link target, or pkgs.org as fallback
                 string url = package.References is { Count: > 0 }
                     ? package.References[0]
                     : $"https://pkgs.org/search/?q={package.Id}";
 
-                _linkDefs.Add($"[{_linkIndex}]: {url}");
-                _linkIndex++;
+                linkDefs.Add($"[{linkIndex}]: {url}");
+                linkIndex++;
 
                 items.Add(linkRef);
             }
@@ -94,6 +82,8 @@ public static class OsPackagesGenerator
             // Note about globalization invariant mode
             writer.WriteParagraph("You do not need to install ICU if you [enable globalization invariant mode](https://github.com/dotnet/runtime/blob/main/docs/design/features/globalization-invariant-mode.md#enabling-the-invariant-mode).");
             writer.WriteParagraph("If your app relies on `https` endpoints, you'll also need to install `ca-certificates`.");
+
+            writer.WriteLinkDefinitions(linkDefs.ToArray());
         }
     }
 
