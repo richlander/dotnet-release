@@ -227,8 +227,16 @@ async Task<int> HandleVerifyAsync(string[] args)
 
         Console.Error.WriteLine($"Verifying .NET {version} supported OS matrix...");
         var report = await SupportedOsVerifier.VerifyAsync(matrix, client, Console.Error);
+
+        if (!report.HasIssues)
+        {
+            Console.Error.WriteLine("No issues found.");
+            return 0;
+        }
+
         var ctx = new SupportedOsReportContext();
         ctx.Serialize(report, Console.Out);
+        return 2;
     }
     else
     {
@@ -241,11 +249,17 @@ async Task<int> HandleVerifyAsync(string[] args)
 
         Console.Error.WriteLine($"Verifying .NET {version} OS packages...");
         var report = await OsPackagesVerifier.VerifyAsync(overview, client, Console.Error);
+
+        if (!report.HasIssues)
+        {
+            Console.Error.WriteLine("No issues found.");
+            return 0;
+        }
+
         var ctx = new OsPackagesReportContext();
         ctx.Serialize(report, Console.Out);
+        return 2;
     }
-
-    return 0;
 }
 
 async Task<int> HandleQueryAsync(string[] args)

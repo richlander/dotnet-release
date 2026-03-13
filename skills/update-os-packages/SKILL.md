@@ -15,11 +15,7 @@ Audit and update `os-packages.json` files in the [dotnet/core](https://github.co
 
 ## Prerequisites
 
-Install the `dotnet-release` tool (see [README](../../README.md) for NuGet source setup):
-
-```bash
-dotnet tool install -g Dotnet.Release.Tools
-```
+The `dotnet-release` tool is installed globally. Run `dotnet-release --help` to confirm.
 
 ## Inputs
 
