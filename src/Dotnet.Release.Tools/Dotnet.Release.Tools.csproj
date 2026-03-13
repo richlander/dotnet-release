@@ -13,7 +13,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Dotnet.Release.Support\Dotnet.Release.Support.csproj" />
     <ProjectReference Include="..\Dotnet.Release\Dotnet.Release.csproj" />
-    <PackageReference Include="Markout" Version="0.11.0-dev" />
+    <PackageReference Include="Markout" Version="0.10.1" />
     <PackageReference Include="Markout.Templates" Version="0.2.0" />
     <PackageReference Include="MarkdownTable.Formatting" Version="0.3.1" />
   </ItemGroup>

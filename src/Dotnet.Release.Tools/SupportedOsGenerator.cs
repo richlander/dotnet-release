@@ -60,7 +60,11 @@ public static class SupportedOsGenerator
             template.Bind("unsupported", unsupportedBinding);
 
         // Render through MarkdownWriter
-        var options = new MarkoutWriterOptions { PrettyTables = true };
+        var options = new MarkoutWriterOptions
+        {
+            PrettyTables = true,
+            TableOptions = new()
+        };
         template.SkipUnboundPlaceholders = true;
         output.WriteLine(template.Render(options));
     }
