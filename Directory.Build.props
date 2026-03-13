@@ -10,6 +10,11 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(OfficialAotBuild)' == 'true'">
+    <OfficialBuild>true</OfficialBuild>
+    <PublishAot>true</PublishAot>
+  </PropertyGroup>
+
   <!-- NuGet package metadata -->
   <PropertyGroup>
     <Authors>Rich Lander</Authors>

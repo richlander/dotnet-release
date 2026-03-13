@@ -18,7 +18,7 @@ jobs:
       code: ${{ steps.filter.outputs.code }}
       docs: ${{ steps.filter.outputs.docs }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -61,7 +61,7 @@ jobs:
     if: needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-node@v5
         with:
@@ -76,7 +76,7 @@ jobs:
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
@@ -89,3 +89,74 @@ jobs:
 
       - name: Test
         run: dotnet test DotnetRelease.slnx -c Release --no-build
+
+  # Pack on Ubuntu (pointer package, non-AOT fallback, and linux-x64 AOT)
+  pack:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Pack pointer package
+        run: dotnet pack src/Dotnet.Release.Tools -c Release -p:OfficialBuild=true
+
+      - name: Pack non-AOT (any) package
+        run: dotnet pack src/Dotnet.Release.Tools -c Release -r any -p:PublishAot=false -p:OfficialBuild=true
+
+      - name: Pack linux-x64 AOT package
+        run: dotnet pack src/Dotnet.Release.Tools -c Release -r linux-x64 -p:OfficialAotBuild=true
+
+      - name: Smoke test
+        run: |
+          dotnet tool install -g Dotnet.Release.Tools --add-source artifacts/package/release --prerelease
+          dotnet-release --help
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-linux-x64
+          path: artifacts/package/release/*.nupkg
+          if-no-files-found: error
+
+  # RID-specific AOT builds (cross-platform matrix)
+  pack-rid:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: win-x64
+            os: windows-latest
+          - rid: win-arm64
+            os: windows-latest
+          - rid: linux-arm64
+            os: ubuntu-24.04-arm
+          - rid: osx-arm64
+            os: macos-latest
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Pack RID-specific package
+        run: dotnet pack src/Dotnet.Release.Tools -c Release -r ${{ matrix.rid }} -p:OfficialAotBuild=true
+
+      - name: Upload RID package
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ matrix.rid }}
+          path: artifacts/package/release/*.nupkg
+          if-no-files-found: error
