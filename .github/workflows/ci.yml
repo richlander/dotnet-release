@@ -114,7 +114,7 @@ jobs:
 
       - name: Smoke test
         run: |
-          dotnet tool install -g Dotnet.Release.Tools --add-source artifacts/package/release --prerelease --ignore-failed-sources
+          dotnet tool install -g Dotnet.Release.Tools --add-source artifacts/package/release --prerelease --configfile /dev/null
           dotnet-release --help
 
       - name: Upload packages
