@@ -34,7 +34,7 @@ public static class SupportedOsGenerator
     public static async Task GenerateAsync(SupportedOSMatrix matrix, TextWriter output, string version, HttpClient client, string? supportPhase = null, string? releaseType = null, string? templatePath = null)
     {
         var template = LoadTemplate(templatePath);
-        template.TableOptions = new TableFormatterOptions();
+        template.TableOptions = new TableFormatterOptions { AutoTune = true };
 
         // Inline bindings
         template.Bind("version", version);
@@ -63,7 +63,7 @@ public static class SupportedOsGenerator
         var options = new MarkoutWriterOptions
         {
             PrettyTables = true,
-            TableOptions = new()
+            TableOptions = new() { AutoTune = true }
         };
         template.SkipUnboundPlaceholders = true;
         output.WriteLine(template.Render(options));
