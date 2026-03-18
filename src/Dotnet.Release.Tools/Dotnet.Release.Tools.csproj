@@ -4,7 +4,7 @@
     <OutputType>Exe</OutputType>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>dotnet-release</ToolCommandName>
-    <VersionPrefix>0.1.0</VersionPrefix>
+    <VersionPrefix>0.2.0</VersionPrefix>
     <PackageId>Dotnet.Release.Tools</PackageId>
     <Description>CLI tools for generating markdown from .NET release data</Description>
     <!-- Size optimizations for Native AOT -->
