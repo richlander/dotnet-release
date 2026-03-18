@@ -1,27 +1,27 @@
 ---
 name: update-distro-packages
-description: Generate and update distro-packages.json files documenting which .NET packages are available in each Linux distribution's native archive and the Microsoft feed, for a given .NET version.
+description: Generate per-distro package files documenting dependencies and .NET package availability for each Linux distribution, for a given .NET version.
 ---
 
 # Update Distro Packages
 
-Generate and update `distro-packages.json` files that document which .NET packages (SDK, runtime, ASP.NET Core runtime, etc.) are available in each Linux distribution, across multiple package feeds.
+Generate per-distro JSON files in the `distro-packages/` directory that combine dependency information (what packages .NET needs) with .NET package availability (where to get .NET) for each Linux distribution.
 
 ## When to use
 
-- A new .NET version is released and you need to document which distros carry it
+- A new .NET version is released and you need to document distro package info
 - A distro ships or drops a .NET version in their archive
 - Periodic audit to keep the availability data current
-- You want to understand where users can get .NET packages for a specific distro+version combination
+- Dependencies change for a distro release (e.g. new libicu version)
 
 ## Background
 
-.NET packages come from multiple sources per distribution:
+Each distro gets its own file (e.g. `ubuntu.json`, `alpine.json`) in `release-notes/{version}/distro-packages/`. Each file contains:
 
-- **Built-in feed** — the distro's own archive (e.g. `apt install dotnet-sdk-9.0` on Ubuntu)
-- **Backports feed** — newer versions backported to LTS distros (Ubuntu-specific)
-- **Microsoft feed** — packages.microsoft.com, available for many distros but being phased out for newer Ubuntu/Fedora
-- **Community feed** — community-maintained packages (Alpine `community` repo)
+- **`install_command`** — how to install packages on this distro (e.g. `apt-get install -y {packages}`)
+- **`dependencies`** — packages .NET needs at runtime, with an agnostic `id` and distro-specific `name` (from `os-packages.json`)
+- **`dotnet_packages`** — .NET packages available from the distro's primary/built-in feed
+- **`dotnet_packages_other`** — .NET packages from secondary feeds (keyed by feed name, each with its own `install_command`)
 
 Package naming varies by distro:
 - Debian/Ubuntu/Fedora: `dotnet-sdk-9.0`, `dotnet-runtime-9.0`, `aspnetcore-runtime-9.0`
@@ -35,50 +35,82 @@ The `dotnet-release` tool is installed globally. Run `dotnet-release --help` to 
 
 The user provides:
 - **dotnet/core path** — local path to the dotnet/core repo (e.g. `~/git/core`)
-- **.NET version** — which version to audit (e.g. "9.0")
-- Optionally, specific distros to focus on
+- **.NET version** — which version to generate for (e.g. "10.0")
+- Optionally, whether to include .NET package availability (requires `PKGS_ORG_TOKEN`)
 
 ## Process
 
-### 1. Determine scope
+### 1. Ensure prerequisites exist
 
-Read `release-notes/{version}/supported-os.json` to get the list of supported Linux distributions and versions.
+Verify that `release-notes/{version}/os-packages.json` exists in the dotnet/core repo. This file provides the dependency data. If it doesn't exist, inform the user to run the `update-os-packages` skill first.
 
-### 2. Query package feeds
+### 2. Optionally query .NET package feeds
 
-Run `dotnet-release query distro-packages {version}` to check each feed. The tool uses the feed URLs from the embedded `distro-sources.json` to:
+If the user wants to include .NET package availability data, run:
 
-1. For each distro+version, check the built-in/community feed for .NET SDK, runtime, and ASP.NET Core runtime packages
-2. Check the Microsoft feed (packages.microsoft.com) where applicable
-3. For Ubuntu, also check the backports feed
-4. Collect package names, versions, and architectures
+```
+dotnet-release query distro-packages --dotnet-version {version} --output release-notes/{version}/distro-packages.json
+```
 
-### 3. Review results
+This queries pkgs.org and supplemental feeds to produce a `distro-packages.json` file listing which .NET packages (SDK, runtime, ASP.NET Core) are available in each distro's archive. This step requires `PKGS_ORG_TOKEN`.
 
-Present the findings to the user as a summary table showing:
-- Which .NET components are available per distro+version
-- Which feed(s) they come from
-- Any gaps (supported distro but no packages available)
+If skipped, the generate step will still produce per-distro files with dependencies only (no `dotnet_packages`).
 
-### 4. Generate output
+### 3. Generate per-distro files
 
-Write `distro-packages.json` to `release-notes/{version}/` in the dotnet/core repo. The file follows the `DistroPackagesOverview` schema with per-feed package listings.
+Run:
 
-### 5. Cross-reference with docs
+```
+dotnet-release generate distro-packages {version} {path-to-core}/release-notes
+```
 
-Compare results against the install documentation in `dotnet/docs` (e.g. `docs/core/install/linux-ubuntu-install.md`) which maintains availability tables per distro. Flag any discrepancies between what the feeds actually contain and what the docs claim.
+This reads `os-packages.json` (required) and `distro-packages.json` (optional) and writes one JSON file per distribution to `release-notes/{version}/distro-packages/`.
 
-### 6. Verify and commit
+Output example (`ubuntu.json`):
+```json
+{
+  "name": "Ubuntu",
+  "install_command": "apt-get install -y {packages}",
+  "releases": [
+    {
+      "name": "Ubuntu 24.04 (Noble Numbat)",
+      "release": "24.04",
+      "dependencies": [
+        { "id": "libicu", "name": "libicu74" },
+        { "id": "openssl", "name": "libssl3t64" }
+      ],
+      "dotnet_packages": [
+        { "component": "sdk", "name": "dotnet-sdk-10.0" }
+      ],
+      "dotnet_packages_other": {
+        "backports": {
+          "install_command": "# See distro documentation for backports feed setup",
+          "packages": [
+            { "component": "sdk", "name": "dotnet-sdk-10.0" }
+          ]
+        }
+      }
+    }
+  ]
+}
+```
 
-1. Validate the generated JSON parses correctly
-2. Show the user a summary of the generated file
-3. On confirmation, commit with a descriptive message
+### 4. Review results
+
+Verify the output:
+- Every distro from `os-packages.json` has a corresponding file in `distro-packages/`
+- Dependencies look correct per release
+- If enriched, `dotnet_packages` data is present for distros that carry .NET
+
+### 5. Commit
+
+Commit all files in `distro-packages/` with a descriptive message.
 
 ## Key facts
 
+- The generate command merges two data sources: `os-packages.json` (dependencies) and optionally `distro-packages.json` (availability from query)
+- Without `distro-packages.json`, files contain dependencies only — this is valid and useful
+- File names are derived from distro names: lowercase, spaces replaced with `_` (e.g. `azure_linux.json`, `centos_stream.json`)
 - Microsoft is phasing out packages.microsoft.com for Ubuntu 24.04+ and newer Fedora — those distros ship .NET in their own archives
-- Ubuntu 22.04 is the last Ubuntu version with Microsoft feed packages
-- Alpine packages are in the `community` repo, not `main`
 - Alpine uses a different naming scheme: `dotnet{major}-{component}` (e.g. `dotnet9-sdk`)
-- The `dotnet/docs` repo (`~/git/docs`) has authoritative availability tables in `docs/core/install/linux-*.md`
 - Package versions in distro feeds may lag behind the latest .NET patch release
