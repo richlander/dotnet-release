@@ -28,6 +28,23 @@ public partial class DistroPackagesSerializerContext : JsonSerializerContext
 
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower,
+    WriteIndented = true)]
+[JsonSerializable(typeof(DistrosIndex))]
+public partial class DistrosIndexSerializerContext : JsonSerializerContext
+{
+}
+
+[JsonSourceGenerationOptions(
+    PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower,
+    WriteIndented = true,
+    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
+[JsonSerializable(typeof(DependenciesFile))]
+public partial class DependenciesFileSerializerContext : JsonSerializerContext
+{
+}
+
+[JsonSourceGenerationOptions(
+    PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower,
     WriteIndented = true,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(DistroPackageFile))]
