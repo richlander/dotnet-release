@@ -34,6 +34,7 @@
   <ItemGroup>
     <EmbeddedResource Include="supported-os-template.md" />
     <EmbeddedResource Include="os-packages-template.md" />
+    <EmbeddedResource Include="dotnet-dependencies-template.md" />
   </ItemGroup>
 
 </Project>
