@@ -197,6 +197,7 @@ public static class DotnetPackagesGenerator
         "microsoft" => "Microsoft PMC",
         "core" => "Homebrew Core",
         "nixpkgs" => "Nixpkgs",
+        "aur" => "AUR",
         _ => char.ToUpper(feedName[0]) + feedName[1..]
     };
 }
