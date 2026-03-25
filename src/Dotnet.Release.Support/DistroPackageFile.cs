@@ -3,9 +3,45 @@ using System.Text.Json.Serialization;
 
 namespace Dotnet.Release.Support;
 
-// Per-distro package file for distro-packages/<distro>.json
-// Combines dependencies (.NET needs) with dotnet packages (where to get .NET)
-[Description("Per-distro package information for a given .NET version.")]
+// distros/index.json — plain index of files in the distros directory
+[Description("Index of per-distro package files.")]
+public record DistrosIndex(
+    [property: Description("Major.minor version of .NET (e.g. '11.0').")]
+    string ChannelVersion,
+
+    [property: Description("Per-distro file names (e.g. 'ubuntu.json').")]
+    IList<string> Distros);
+
+// dependencies.json — distro-agnostic package list extracted from os-packages.json
+[Description("Distro-agnostic dependency packages required by .NET.")]
+public record DependenciesFile(
+    [property: Description("Major.minor version of .NET (e.g. '11.0').")]
+    string ChannelVersion,
+
+    [property: Description("Packages required to run .NET on Linux.")]
+    IList<DependencyPackage> Packages);
+
+[Description("A distro-agnostic dependency package.")]
+public record DependencyPackage(
+    [property: Description("Package identifier (e.g. 'libc', 'openssl').")]
+    string Id,
+
+    [property: Description("Display name.")]
+    string Name,
+
+    [property: Description("Scenarios that require this package (e.g. 'all', 'https', 'globalization').")]
+    IList<string> RequiredScenarios,
+
+    [property: Description("Minimum required version (e.g. '1.1.1').")]
+    string? MinVersion = null,
+
+    [property: Description("Reference URLs for this package.")]
+    IList<string>? References = null);
+
+// Per-distro package file for distros/<distro>.json
+// Scoped to the .NET version of the parent release-notes/{version}/ directory.
+// Combines dependencies (.NET needs) with dotnet packages (where to get .NET).
+[Description("Per-distro package information combining dependencies and .NET package availability for a single .NET version.")]
 public record DistroPackageFile(
     [property: Description("Distribution name.")]
     string Name,
@@ -27,10 +63,10 @@ public record DistroPackageRelease(
     [property: Description("Packages required to run .NET on this release.")]
     IList<DistroDepPackage> Dependencies,
 
-    [property: Description("Built-in .NET packages available in the distro archive.")]
+    [property: Description(".NET packages available from the distro's built-in feed.")]
     IList<DotnetComponentPackage>? DotnetPackages = null,
 
-    [property: Description("Alternative feed .NET packages (keyed by feed name).")]
+    [property: Description("Alternative feed .NET packages (keyed by feed name, e.g. 'backports', 'microsoft').")]
     IDictionary<string, DotnetAlternativeFeed>? DotnetPackagesOther = null,
 
     [property: Description("Notes about this release (e.g. SDK band limitations).")]

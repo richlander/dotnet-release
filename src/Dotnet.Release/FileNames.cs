@@ -11,6 +11,7 @@ public static class FileNames
     public const string Cve = "cve.json";
     public const string SupportedOs = "supported-os.json";
     public const string OsPackages = "os-packages.json";
+    public const string Dependencies = "dependencies.json";
     public const string Manifest = "manifest.json";
     public const string PartialManifest = "_manifest.json";
     public const string Llms = "llms.json";
@@ -46,5 +47,6 @@ public static class FileNames
         public const string Sdk = "sdk";
         public const string Preview = "preview";
         public const string Downloads = "downloads";
+        public const string Distros = "distros";
     }
 }
