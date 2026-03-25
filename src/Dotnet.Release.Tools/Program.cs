@@ -46,6 +46,9 @@ if (args.Length > 2 && args[2] == "--export-template")
         case "os-packages":
             OsPackagesGenerator.ExportTemplate(Console.Out);
             break;
+        case "dotnet-dependencies":
+            DotnetDependenciesGenerator.ExportTemplate(Console.Out);
+            break;
         default:
             Console.Error.WriteLine($"Unknown type: {type}");
             PrintUsage();
@@ -86,6 +89,8 @@ switch (type)
         return await GenerateSupportedOsAsync(path, version, client, templatePath);
     case "os-packages":
         return await GenerateOsPackagesAsync(path, version, client, templatePath);
+    case "dotnet-dependencies":
+        return await GenerateDotnetDependenciesAsync(path, version, client, templatePath);
     default:
         Console.Error.WriteLine($"Unknown type: {type}");
         PrintUsage();
@@ -162,6 +167,64 @@ async Task<int> GenerateOsPackagesAsync(IAdaptivePath path, string version, Http
     return 0;
 }
 
+async Task<int> GenerateDotnetDependenciesAsync(IAdaptivePath path, string version, HttpClient client, string? templatePath)
+{
+    // Read distros/index.json
+    string indexPath = path.Combine(version, FileNames.Directories.Distros, FileNames.Index);
+    Console.Error.WriteLine($"Reading {indexPath}...");
+
+    using var indexStream = await path.GetStreamAsync(indexPath);
+    var index = await JsonSerializer.DeserializeAsync(indexStream, DistrosIndexSerializerContext.Default.DistrosIndex)
+        ?? throw new InvalidOperationException("Failed to deserialize index.json");
+
+    // Read distros/dependencies.json
+    string depsPath = path.Combine(version, FileNames.Directories.Distros, FileNames.Dependencies);
+    Console.Error.WriteLine($"Reading {depsPath}...");
+
+    using var depsStream = await path.GetStreamAsync(depsPath);
+    var dependencies = await JsonSerializer.DeserializeAsync(depsStream, DependenciesFileSerializerContext.Default.DependenciesFile)
+        ?? throw new InvalidOperationException("Failed to deserialize dependencies.json");
+
+    // Read each per-distro file
+    var distros = new List<DistroPackageFile>();
+    foreach (var distroFile in index.Distros)
+    {
+        string distroPath = path.Combine(version, FileNames.Directories.Distros, distroFile);
+        Console.Error.WriteLine($"Reading {distroPath}...");
+
+        using var distroStream = await path.GetStreamAsync(distroPath);
+        var distro = await JsonSerializer.DeserializeAsync(distroStream, DistroPackageFileSerializerContext.Default.DistroPackageFile)
+            ?? throw new InvalidOperationException($"Failed to deserialize {distroFile}");
+
+        distros.Add(distro);
+    }
+
+    TextWriter output;
+    string? outputPath = null;
+
+    if (path.SupportsLocalPaths)
+    {
+        outputPath = path.Combine(version, "dotnet-dependencies.md");
+        output = new StreamWriter(File.Open(outputPath, FileMode.Create));
+    }
+    else
+    {
+        output = Console.Out;
+    }
+
+    DotnetDependenciesGenerator.Generate(dependencies, index, distros, output, version, templatePath: templatePath);
+
+    if (outputPath is not null)
+    {
+        await output.DisposeAsync();
+        var info = new FileInfo(outputPath);
+        Console.Error.WriteLine($"Generated {info.Length} bytes");
+        Console.Error.WriteLine(info.FullName);
+    }
+
+    return 0;
+}
+
 static void PrintUsage()
 {
     Console.Error.WriteLine("Usage: dotnet-release generate <type> <version> [path-or-url] [--template <file>]");
@@ -169,11 +232,13 @@ static void PrintUsage()
     Console.Error.WriteLine("       dotnet-release verify <type> <version> [path-or-url]");
     Console.Error.WriteLine("       dotnet-release query distro-packages --dotnet-version <ver> [--output <file>]");
     Console.Error.WriteLine();
-    Console.Error.WriteLine("Types: supported-os, os-packages");
+    Console.Error.WriteLine("Types: supported-os, os-packages, dotnet-dependencies");
     Console.Error.WriteLine();
     Console.Error.WriteLine("Examples:");
     Console.Error.WriteLine("  dotnet-release generate supported-os 10.0");
     Console.Error.WriteLine("  dotnet-release generate os-packages 10.0");
+    Console.Error.WriteLine("  dotnet-release generate dotnet-dependencies 11.0");
+    Console.Error.WriteLine("  dotnet-release generate dotnet-dependencies 11.0 ~/git/core/release-notes");
     Console.Error.WriteLine("  dotnet-release generate supported-os 10.0 ~/git/core/release-notes");
     Console.Error.WriteLine("  dotnet-release generate os-packages --export-template > my-template.md");
     Console.Error.WriteLine("  dotnet-release verify supported-os 10.0");
