@@ -113,18 +113,26 @@ jobs:
         run: rm -rf artifacts/package
 
       - name: Pack pointer package
-        run: dotnet pack src/Dotnet.Release.Tools -c Release -p:OfficialBuild=true
+        run: |
+          dotnet pack src/Dotnet.Release.Tools -c Release -p:OfficialBuild=true
+          dotnet pack src/Dotnet.Release.CveEnricher -c Release -p:OfficialBuild=true
 
       - name: Pack non-AOT (any) package
-        run: dotnet pack src/Dotnet.Release.Tools -c Release -r any -p:PublishAot=false -p:OfficialBuild=true
+        run: |
+          dotnet pack src/Dotnet.Release.Tools -c Release -r any -p:PublishAot=false -p:OfficialBuild=true
+          dotnet pack src/Dotnet.Release.CveEnricher -c Release -r any -p:PublishAot=false -p:OfficialBuild=true
 
       - name: Pack linux-x64 AOT package
-        run: dotnet pack src/Dotnet.Release.Tools -c Release -r linux-x64 -p:OfficialAotBuild=true
+        run: |
+          dotnet pack src/Dotnet.Release.Tools -c Release -r linux-x64 -p:OfficialAotBuild=true
+          dotnet pack src/Dotnet.Release.CveEnricher -c Release -r linux-x64 -p:OfficialAotBuild=true
 
       - name: Smoke test
         run: |
           dotnet tool install -g Dotnet.Release.Tools --add-source artifacts/package/release --prerelease
           dotnet-release --help || true
+          dotnet tool install -g Dotnet.Release.CveEnricher --add-source artifacts/package/release --prerelease
+          dotnet-cve-enricher || true
 
       - name: Upload packages
         uses: actions/upload-artifact@v4
@@ -164,7 +172,9 @@ jobs:
         run: dotnet nuget update source github-richlander --username richlander --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --configfile nuget.config
 
       - name: Pack RID-specific package
-        run: dotnet pack src/Dotnet.Release.Tools -c Release -r ${{ matrix.rid }} -p:OfficialAotBuild=true
+        run: |
+          dotnet pack src/Dotnet.Release.Tools -c Release -r ${{ matrix.rid }} -p:OfficialAotBuild=true
+          dotnet pack src/Dotnet.Release.CveEnricher -c Release -r ${{ matrix.rid }} -p:OfficialAotBuild=true
 
       - name: Upload RID package
         uses: actions/upload-artifact@v4
