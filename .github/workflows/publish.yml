@@ -60,6 +60,7 @@ jobs:
           dotnet-quality: 'preview'
 
       - name: Pack AOT (${{ matrix.rid }})
+        shell: bash
         run: |
           for proj in ${{ env.TOOL_PROJECTS }}; do
             dotnet pack "$proj" -c Release -r ${{ matrix.rid }} -o ./nupkg
