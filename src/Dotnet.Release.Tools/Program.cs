@@ -187,7 +187,7 @@ async Task<int> GenerateDotnetDependenciesAsync(IAdaptivePath path, string versi
 
     // Read each per-distro file
     var distros = new List<DistroPackageFile>();
-    foreach (var distroFile in index.Distros)
+    foreach (var distroFile in index.Distros.Keys)
     {
         string distroPath = path.Combine(version, FileNames.Directories.Distros, distroFile);
         Console.Error.WriteLine($"Reading {distroPath}...");
