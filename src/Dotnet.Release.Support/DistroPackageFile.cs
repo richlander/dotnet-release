@@ -3,14 +3,14 @@ using System.Text.Json.Serialization;
 
 namespace Dotnet.Release.Support;
 
-// distros/index.json — plain index of files in the distros directory
+// distros/index.json — index of files in the distros directory
 [Description("Index of per-distro package files.")]
 public record DistrosIndex(
     [property: Description("Major.minor version of .NET (e.g. '11.0').")]
     string ChannelVersion,
 
-    [property: Description("Per-distro file names (e.g. 'ubuntu.json').")]
-    IList<string> Distros);
+    [property: Description("Per-distro files: file name → display name (e.g. 'ubuntu.json' → 'Ubuntu').")]
+    IDictionary<string, string> Distros);
 
 // dependencies.json — distro-agnostic package list extracted from os-packages.json
 [Description("Distro-agnostic dependency packages required by .NET.")]
