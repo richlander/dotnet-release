@@ -49,6 +49,9 @@ if (args.Length > 2 && args[2] == "--export-template")
         case "dotnet-dependencies":
             DotnetDependenciesGenerator.ExportTemplate(Console.Out);
             break;
+        case "dotnet-packages":
+            DotnetPackagesGenerator.ExportTemplate(Console.Out);
+            break;
         default:
             Console.Error.WriteLine($"Unknown type: {type}");
             PrintUsage();
@@ -91,6 +94,8 @@ switch (type)
         return await GenerateOsPackagesAsync(path, version, client, templatePath);
     case "dotnet-dependencies":
         return await GenerateDotnetDependenciesAsync(path, version, client, templatePath);
+    case "dotnet-packages":
+        return await GenerateDotnetPackagesAsync(path, version, client, templatePath);
     default:
         Console.Error.WriteLine($"Unknown type: {type}");
         PrintUsage();
@@ -213,6 +218,56 @@ async Task<int> GenerateDotnetDependenciesAsync(IAdaptivePath path, string versi
     }
 
     DotnetDependenciesGenerator.Generate(dependencies, index, distros, output, version, templatePath: templatePath);
+
+    if (outputPath is not null)
+    {
+        await output.DisposeAsync();
+        var info = new FileInfo(outputPath);
+        Console.Error.WriteLine($"Generated {info.Length} bytes");
+        Console.Error.WriteLine(info.FullName);
+    }
+
+    return 0;
+}
+
+async Task<int> GenerateDotnetPackagesAsync(IAdaptivePath path, string version, HttpClient client, string? templatePath)
+{
+    // Read distros/index.json
+    string indexPath = path.Combine(version, FileNames.Directories.Distros, FileNames.Index);
+    Console.Error.WriteLine($"Reading {indexPath}...");
+
+    using var indexStream = await path.GetStreamAsync(indexPath);
+    var index = await JsonSerializer.DeserializeAsync(indexStream, DistrosIndexSerializerContext.Default.DistrosIndex)
+        ?? throw new InvalidOperationException("Failed to deserialize index.json");
+
+    // Read each per-distro file
+    var distros = new List<DistroPackageFile>();
+    foreach (var distroFile in index.Distros.Keys)
+    {
+        string distroPath = path.Combine(version, FileNames.Directories.Distros, distroFile);
+        Console.Error.WriteLine($"Reading {distroPath}...");
+
+        using var distroStream = await path.GetStreamAsync(distroPath);
+        var distro = await JsonSerializer.DeserializeAsync(distroStream, DistroPackageFileSerializerContext.Default.DistroPackageFile)
+            ?? throw new InvalidOperationException($"Failed to deserialize {distroFile}");
+
+        distros.Add(distro);
+    }
+
+    TextWriter output;
+    string? outputPath = null;
+
+    if (path.SupportsLocalPaths)
+    {
+        outputPath = path.Combine(version, "dotnet-packages.md");
+        output = new StreamWriter(File.Open(outputPath, FileMode.Create));
+    }
+    else
+    {
+        output = Console.Out;
+    }
+
+    DotnetPackagesGenerator.Generate(index, distros, output, version, templatePath: templatePath);
 
     if (outputPath is not null)
     {
