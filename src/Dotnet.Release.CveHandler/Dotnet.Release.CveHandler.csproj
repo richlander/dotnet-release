@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Dotnet.Release.CveHandler</PackageId>
+    <Description>CVE loading, transformation, MSRC enrichment, and dictionary generation for .NET release data</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Dotnet.Release\Dotnet.Release.csproj" />
+    <ProjectReference Include="..\Dotnet.Release.Cve\Dotnet.Release.Cve.csproj" />
+    <ProjectReference Include="..\Dotnet.Release.Graph\Dotnet.Release.Graph.csproj" />
+  </ItemGroup>
+
+</Project>
