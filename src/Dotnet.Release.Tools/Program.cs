@@ -1,11 +1,14 @@
 using System.Text.Json;
 using Dotnet.Release;
+using Dotnet.Release.IndexGenerator;
 using Dotnet.Release.Releases;
+using Dotnet.Release.Summary;
 using Dotnet.Release.Support;
 using Dotnet.Release.Tools;
 
 // Usage: dotnet-release generate <type> <version> [path-or-url] [--template <file>]
 //        dotnet-release generate <type> --export-template
+//        dotnet-release generate version-index|timeline-index|llms-index|indexes <input-dir> [output-dir] [--url-root <url>]
 //        dotnet-release verify <type> <version> [path-or-url]
 //        dotnet-release query distro-packages --dotnet-version <ver> [--output <file>]
 // Types: supported-os, os-packages
@@ -65,10 +68,12 @@ if (args.Length > 2 && args[2] == "--export-template")
 }
 
 // Types that don't require a version number
-if (type is "releases-index" or "releases")
+if (type is "releases-index" or "releases" or "version-index" or "timeline-index" or "llms-index" or "indexes")
 {
     string genPath = ".";
+    string? genOutputPath = null;
     string? genTemplatePath = null;
+    string? genUrlRoot = null;
 
     for (int i = 2; i < args.Length; i++)
     {
@@ -76,9 +81,28 @@ if (type is "releases-index" or "releases")
         {
             genTemplatePath = args[++i];
         }
+        else if (args[i] == "--url-root" && i + 1 < args.Length)
+        {
+            genUrlRoot = args[++i];
+        }
         else if (!args[i].StartsWith('-'))
         {
-            genPath = args[i];
+            if (type is "version-index" or "timeline-index" or "llms-index" or "indexes")
+            {
+                // Index generators: first positional is input-dir, second is output-dir
+                if (genPath == ".")
+                {
+                    genPath = args[i];
+                }
+                else
+                {
+                    genOutputPath = args[i];
+                }
+            }
+            else
+            {
+                genPath = args[i];
+            }
         }
     }
 
@@ -86,6 +110,10 @@ if (type is "releases-index" or "releases")
     {
         "releases-index" => await GenerateReleasesIndexAsync(genPath),
         "releases" => await GenerateReleasesAsync(genPath, genTemplatePath),
+        "version-index" => await GenerateVersionIndexAsync(genPath, genOutputPath, genUrlRoot),
+        "timeline-index" => await GenerateTimelineIndexAsync(genPath, genOutputPath, genUrlRoot),
+        "llms-index" => await GenerateLlmsIndexAsync(genPath, genOutputPath, genUrlRoot),
+        "indexes" => await GenerateAllIndexesAsync(genPath, genOutputPath, genUrlRoot),
         _ => 1
     };
 }
@@ -344,6 +372,108 @@ async Task<int> GenerateReleasesAsync(string basePath, string? templatePath)
     return 0;
 }
 
+(string InputDir, string OutputDir) PrepareIndexDirs(string inputDir, string? outputDir)
+{
+    var resolvedOutput = outputDir ?? inputDir;
+
+    if (!Directory.Exists(inputDir))
+    {
+        throw new DirectoryNotFoundException($"Input directory not found: {inputDir}");
+    }
+
+    if (inputDir != resolvedOutput && !Directory.Exists(resolvedOutput))
+    {
+        Directory.CreateDirectory(resolvedOutput);
+        Console.Error.WriteLine($"Created output directory: {resolvedOutput}");
+    }
+
+    return (inputDir, resolvedOutput);
+}
+
+async Task<List<MajorReleaseSummary>> LoadSummariesAsync(string inputDir, bool supportedOnly = false)
+{
+    return await ReleaseSummaryLoader.GetReleaseSummariesAsync(inputDir, supportedOnly)
+        ?? throw new InvalidOperationException("Failed to generate release summaries.");
+}
+
+async Task<int> GenerateVersionIndexAsync(string inputDir, string? outputDir, string? urlRoot)
+{
+    var (input, output) = PrepareIndexDirs(inputDir, outputDir);
+
+    if (urlRoot != null) Location.SetUrlRoot(urlRoot);
+
+    Console.Error.WriteLine($"Generating version indexes from {Path.GetFullPath(input)}...");
+
+    var summaries = await LoadSummariesAsync(input);
+    await ReleaseIndexFiles.GenerateAsync(summaries, input, output);
+    await DownloadsIndexFiles.GenerateAsync(summaries, output);
+
+    Console.Error.WriteLine("Version index generation complete.");
+    return 0;
+}
+
+async Task<int> GenerateTimelineIndexAsync(string inputDir, string? outputDir, string? urlRoot)
+{
+    var (input, output) = PrepareIndexDirs(inputDir, outputDir);
+
+    if (urlRoot != null) Location.SetUrlRoot(urlRoot);
+
+    Console.Error.WriteLine($"Generating timeline indexes from {Path.GetFullPath(input)}...");
+
+    var summaries = await LoadSummariesAsync(input);
+    ReleaseHistory history = ReleaseSummaryLoader.GetReleaseCalendar(summaries);
+    ReleaseSummaryLoader.PopulateCveInformation(history, input);
+    await ShipIndexFiles.GenerateAsync(input, output, history, summaries);
+
+    Console.Error.WriteLine("Timeline index generation complete.");
+    return 0;
+}
+
+async Task<int> GenerateLlmsIndexAsync(string inputDir, string? outputDir, string? urlRoot)
+{
+    var (input, output) = PrepareIndexDirs(inputDir, outputDir);
+
+    if (urlRoot != null) Location.SetUrlRoot(urlRoot);
+
+    Console.Error.WriteLine($"Generating llms.json from {Path.GetFullPath(input)}...");
+
+    var summaries = await LoadSummariesAsync(input, supportedOnly: true);
+    ReleaseHistory history = ReleaseSummaryLoader.GetReleaseCalendar(summaries);
+    ReleaseSummaryLoader.PopulateCveInformation(history, input);
+    await LlmsIndexFiles.GenerateAsync(input, output, summaries, history);
+
+    Console.Error.WriteLine("LLMs index generation complete.");
+    return 0;
+}
+
+async Task<int> GenerateAllIndexesAsync(string inputDir, string? outputDir, string? urlRoot)
+{
+    var (input, output) = PrepareIndexDirs(inputDir, outputDir);
+
+    if (urlRoot != null) Location.SetUrlRoot(urlRoot);
+
+    Console.Error.WriteLine($"Generating all indexes from {Path.GetFullPath(input)}...");
+
+    // Load all summaries (version-index and timeline need all; llms needs supported only)
+    var allSummaries = await LoadSummariesAsync(input);
+    ReleaseHistory history = ReleaseSummaryLoader.GetReleaseCalendar(allSummaries);
+    ReleaseSummaryLoader.PopulateCveInformation(history, input);
+
+    // Version indexes
+    await ReleaseIndexFiles.GenerateAsync(allSummaries, input, output);
+    await DownloadsIndexFiles.GenerateAsync(allSummaries, output);
+
+    // Timeline indexes
+    await ShipIndexFiles.GenerateAsync(input, output, history, allSummaries);
+
+    // LLMs index (filter to supported only)
+    var supportedSummaries = allSummaries.Where(s => s.Lifecycle.Supported).ToList();
+    await LlmsIndexFiles.GenerateAsync(input, output, supportedSummaries, history);
+
+    Console.Error.WriteLine("All index generation complete.");
+    return 0;
+}
+
 async Task<int> VerifyReleasesAsync(string basePath, string? version, bool skipHash)
 {
     string scope = version is not null ? $".NET {version}" : "all supported versions";
@@ -371,12 +501,17 @@ static void PrintUsage()
     Console.Error.WriteLine("Usage: dotnet-release generate <type> <version> [path-or-url] [--template <file>]");
     Console.Error.WriteLine("       dotnet-release generate releases-index [path]");
     Console.Error.WriteLine("       dotnet-release generate releases [path] [--template <file>]");
+    Console.Error.WriteLine("       dotnet-release generate version-index <input-dir> [output-dir] [--url-root <url>]");
+    Console.Error.WriteLine("       dotnet-release generate timeline-index <input-dir> [output-dir] [--url-root <url>]");
+    Console.Error.WriteLine("       dotnet-release generate llms-index <input-dir> [output-dir] [--url-root <url>]");
+    Console.Error.WriteLine("       dotnet-release generate indexes <input-dir> [output-dir] [--url-root <url>]");
     Console.Error.WriteLine("       dotnet-release generate <type> --export-template");
     Console.Error.WriteLine("       dotnet-release verify <type> <version> [path-or-url]");
     Console.Error.WriteLine("       dotnet-release verify releases [version] [path] [--skip-hash]");
     Console.Error.WriteLine("       dotnet-release query distro-packages --dotnet-version <ver> [--output <file>]");
     Console.Error.WriteLine();
-    Console.Error.WriteLine("Types: supported-os, os-packages, dotnet-dependencies, releases-index, releases");
+    Console.Error.WriteLine("Types: supported-os, os-packages, dotnet-dependencies, releases-index, releases,");
+    Console.Error.WriteLine("       version-index, timeline-index, llms-index, indexes");
     Console.Error.WriteLine();
     Console.Error.WriteLine("Examples:");
     Console.Error.WriteLine("  dotnet-release generate supported-os 10.0");
@@ -388,6 +523,10 @@ static void PrintUsage()
     Console.Error.WriteLine("  dotnet-release generate releases-index ~/git/core/release-notes");
     Console.Error.WriteLine("  dotnet-release generate releases ~/git/core/release-notes");
     Console.Error.WriteLine("  dotnet-release generate releases --export-template > my-template.md");
+    Console.Error.WriteLine("  dotnet-release generate version-index ~/git/core/release-notes");
+    Console.Error.WriteLine("  dotnet-release generate timeline-index ~/git/core/release-notes /tmp/output");
+    Console.Error.WriteLine("  dotnet-release generate llms-index ~/git/core/release-notes");
+    Console.Error.WriteLine("  dotnet-release generate indexes ~/git/core/release-notes --url-root https://raw.githubusercontent.com/dotnet/core/abc123");
     Console.Error.WriteLine("  dotnet-release verify supported-os 10.0");
     Console.Error.WriteLine("  dotnet-release verify supported-os 10.0 ~/git/core/release-notes");
     Console.Error.WriteLine("  dotnet-release verify os-packages 10.0");

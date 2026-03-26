@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Dotnet.Release.IndexGenerator</PackageId>
+    <Description>Generators for .NET release HAL+JSON index files</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Dotnet.Release\Summary\**\*.cs" LinkBase="Summary" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Dotnet.Release\Dotnet.Release.csproj" />
+    <ProjectReference Include="..\Dotnet.Release.Graph\Dotnet.Release.Graph.csproj" />
+    <ProjectReference Include="..\Dotnet.Release.Releases\Dotnet.Release.Releases.csproj" />
+    <ProjectReference Include="..\Dotnet.Release.CveHandler\Dotnet.Release.CveHandler.csproj" />
+  </ItemGroup>
+
+</Project>

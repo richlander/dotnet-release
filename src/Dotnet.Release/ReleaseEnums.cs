@@ -36,8 +36,9 @@ public enum ReleaseType
 
 [Description("Full lifecycle information for a major .NET release")]
 public record Lifecycle(
-    [property: Description("Support duration model (LTS or STS)")]
-    ReleaseType ReleaseType,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull),
+     Description("Support duration model (LTS or STS), null for feature bands")]
+    ReleaseType? ReleaseType,
 
     [property: Description("Current support phase")]
     SupportPhase Phase,
@@ -48,8 +49,8 @@ public record Lifecycle(
     [property: Description("End of Life date")]
     DateTimeOffset EolDate)
 {
-    [Description("Whether this release is currently supported (not EOL)")]
-    public bool Supported => Phase != SupportPhase.Eol;
+    [Description("Whether this release is currently supported (based on EOL date and lifecycle phase)")]
+    public bool Supported { get; set; } = false;
 }
 
 [Description("Simplified lifecycle for patch releases")]
@@ -75,7 +76,81 @@ public static class ReleaseStability
 {
     public static bool IsStable(SupportPhase phase) => phase is SupportPhase.Active or SupportPhase.Maintenance;
 
+    public static bool IsStable(Lifecycle? lifecycle) => lifecycle != null && IsStable(lifecycle.Phase);
+
     public static bool IsSupported(SupportPhase phase) => phase is not SupportPhase.Eol;
 
+    public static bool IsSupported(Lifecycle? lifecycle, DateTimeOffset? referenceDate = null)
+    {
+        if (lifecycle == null)
+            return false;
+
+        var checkDate = referenceDate ?? DateTimeOffset.UtcNow;
+        return IsStable(lifecycle.Phase) && checkDate < lifecycle.EolDate;
+    }
+
     public static bool IsPreRelease(SupportPhase phase) => phase is SupportPhase.Preview or SupportPhase.GoLive;
+
+    public static string? FindLatestVersion(
+        IEnumerable<(string Version, Lifecycle? Lifecycle)> releases,
+        StringComparer comparer)
+    {
+        return releases
+            .Where(r => IsStable(r.Lifecycle))
+            .OrderByDescending(r => r.Version, comparer)
+            .Select(r => r.Version)
+            .FirstOrDefault();
+    }
+
+    public static string? FindLatestLtsVersion(
+        IEnumerable<(string Version, Lifecycle? Lifecycle)> releases,
+        StringComparer comparer)
+    {
+        return releases
+            .Where(r => r.Lifecycle != null &&
+                       IsStable(r.Lifecycle) &&
+                       r.Lifecycle.ReleaseType == ReleaseType.LTS)
+            .OrderByDescending(r => r.Version, comparer)
+            .Select(r => r.Version)
+            .FirstOrDefault();
+    }
+
+    public static SupportPhase DeterminePhaseFromVersion(string patchVersion)
+    {
+        if (string.IsNullOrEmpty(patchVersion))
+        {
+            return SupportPhase.Preview;
+        }
+
+        var lowerVersion = patchVersion.ToLowerInvariant();
+
+        if (lowerVersion.Contains("preview"))
+        {
+            return SupportPhase.Preview;
+        }
+
+        if (lowerVersion.Contains("-rc"))
+        {
+            return SupportPhase.GoLive;
+        }
+
+        return SupportPhase.Active;
+    }
+
+    public static SupportPhase ComputeEffectivePhase(SupportPhase phase, DateTimeOffset gaDate, DateTimeOffset? referenceDate = null)
+    {
+        var checkDate = referenceDate ?? DateTimeOffset.UtcNow;
+
+        if ((phase == SupportPhase.Preview || phase == SupportPhase.GoLive) && gaDate <= checkDate)
+        {
+            return SupportPhase.Active;
+        }
+
+        if (phase == SupportPhase.Active && gaDate > checkDate)
+        {
+            return SupportPhase.Preview;
+        }
+
+        return phase;
+    }
 }

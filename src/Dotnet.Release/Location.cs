@@ -1,0 +1,26 @@
+namespace Dotnet.Release;
+
+public class Location
+{
+    public static string OfficialBaseUri { get; private set; } = "https://builds.dotnet.microsoft.com/dotnet/release-metadata/";
+
+    public static string GitHubBaseUri { get; private set; } = "https://raw.githubusercontent.com/dotnet/core/refs/heads/release-index/release-notes/";
+
+    public static string MajorReleasesIndexUri { get; private set; } = "https://builds.dotnet.microsoft.com/dotnet/release-metadata/releases-index.json";
+
+    public static void SetUrlRoot(string urlRoot)
+    {
+        if (!urlRoot.EndsWith("/release-notes/"))
+        {
+            if (urlRoot.EndsWith("/"))
+            {
+                urlRoot += "release-notes/";
+            }
+            else
+            {
+                urlRoot += "/release-notes/";
+            }
+        }
+        GitHubBaseUri = urlRoot;
+    }
+}

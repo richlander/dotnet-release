@@ -39,7 +39,11 @@ public record PatchRelease(
     SdkComponent Sdk,
 
     [property: Description("ASP.NET Core component information.")]
-    AspNetCoreComponent AspnetcoreRuntime)
+    AspNetCoreComponent AspnetcoreRuntime,
+
+    [property: Description("SDK components of the release (may include multiple feature bands)."),
+     JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    IList<SdkComponent>? Sdks = null)
 {
     [Description("Windows Desktop component information."),
      JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

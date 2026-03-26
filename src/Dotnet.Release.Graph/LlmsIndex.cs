@@ -95,6 +95,23 @@ public record LlmsPatchEntry(
      Description("HAL+JSON links")]
     Dictionary<string, HalLink> Links);
 
+[Description("Partial LLMs index for hand-maintained fields")]
+public record PartialLlmsIndex
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull),
+     Description("Note for AI assistants on how to navigate this graph")]
+    public string? AiNote { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull),
+     Description("Override title if needed")]
+    public string? Title { get; init; }
+
+    [JsonPropertyName("_links"),
+     JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull),
+     Description("Additional links to merge")]
+    public Dictionary<string, HalLink>? Links { get; init; }
+}
+
 [Description("Navigation workflow for common queries")]
 public record LlmsWorkflow
 {

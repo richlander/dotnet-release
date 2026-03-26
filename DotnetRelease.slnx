@@ -9,6 +9,7 @@
     <Project Path="src/Dotnet.Release.Tools/Dotnet.Release.Tools.csproj" />
     <Project Path="src/Dotnet.Release.CveHandler/Dotnet.Release.CveHandler.csproj" />
     <Project Path="src/Dotnet.Release.CveEnricher/Dotnet.Release.CveEnricher.csproj" />
+    <Project Path="src/Dotnet.Release.IndexGenerator/Dotnet.Release.IndexGenerator.csproj" />
   </Folder>
   <Folder Name="/test/">
     <Project Path="test/Dotnet.Release.Graph.Tests/Dotnet.Release.Graph.Tests.csproj" />
