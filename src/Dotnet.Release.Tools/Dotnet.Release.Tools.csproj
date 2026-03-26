@@ -24,6 +24,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Dotnet.Release.Graph\Dotnet.Release.Graph.csproj" />
+    <ProjectReference Include="..\Dotnet.Release.Releases\Dotnet.Release.Releases.csproj" />
     <ProjectReference Include="..\Dotnet.Release.Support\Dotnet.Release.Support.csproj" />
     <ProjectReference Include="..\Dotnet.Release\Dotnet.Release.csproj" />
     <PackageReference Include="Markout" Version="0.10.2" />
@@ -36,6 +38,7 @@
     <EmbeddedResource Include="os-packages-template.md" />
     <EmbeddedResource Include="dotnet-dependencies-template.md" />
     <EmbeddedResource Include="dotnet-packages-template.md" />
+    <EmbeddedResource Include="releases-template.md" />
   </ItemGroup>
 
 </Project>
