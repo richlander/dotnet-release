@@ -49,6 +49,21 @@ public record HistoryYearIndexEmbedded
     public List<HistoryMonthSummary>? Months { get; set; }
 }
 
+[Description("Detailed month entry with full release and CVE information")]
+public record HistoryMonthEntry(
+    [Description("Month identifier (e.g., '02' for February)")]
+    string Month,
+    [property: JsonPropertyName("_links"),
+     Description("HAL+JSON links for navigation to this month's content")]
+    Dictionary<string, HalLink> Links,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull), Description("CVE security vulnerability records for this month")]
+    IReadOnlyList<CveRecordSummary>? CveRecords,
+    [property: JsonPropertyName("major_releases"), Description("List of .NET major version identifiers that had releases this month")]
+    IList<string> MajorReleases,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull), Description("List of specific patch version identifiers released this month")]
+    IList<string>? PatchReleases
+);
+
 [Description("Simplified month entry for year-level summaries")]
 public record HistoryMonthSummary(
     [Description("Month identifier (e.g., '02' for February)")]

@@ -41,6 +41,83 @@ public class MediaType
     public const string HalJson = "application/hal+json";
     public const string Text = "text/plain";
     public const string Html = "text/html";
+
+    public static List<string> HalJsonFiles { get; } = new()
+    {
+        "index.json",
+        "manifest.json",
+        "timeline/index.json",
+    };
+
+    public static string GetFileType(string filename)
+    {
+        string extension = Path.GetExtension(filename).ToLowerInvariant();
+        if (extension == ".json")
+        {
+            if (HalJsonFiles.Contains(filename, StringComparer.OrdinalIgnoreCase))
+            {
+                return MediaType.HalJson;
+            }
+            else
+            {
+                return MediaType.Json;
+            }
+        }
+
+        return extension switch
+        {
+            ".md" => MediaType.Markdown,
+            _ => MediaType.Text
+        };
+    }
+}
+
+public class HalHelpers
+{
+    public static string GetFileType(ReleaseKind kind) => kind switch
+    {
+        ReleaseKind.Root => MediaType.Json,
+        ReleaseKind.Major => MediaType.Json,
+        ReleaseKind.Patch => MediaType.Json,
+        ReleaseKind.Manifest => MediaType.Json,
+        _ => MediaType.Text
+    };
+
+    /// <summary>
+    /// Orders HAL links with standard relations first (self, prev-*), then HAL+JSON links alphabetically,
+    /// then non-HAL links (JSON, markdown) alphabetically.
+    /// </summary>
+    public static Dictionary<string, HalLink> OrderLinks(Dictionary<string, HalLink> links)
+    {
+        var ordered = new Dictionary<string, HalLink>();
+
+        // Add self first
+        if (links.TryGetValue(HalTerms.Self, out var selfLink))
+            ordered[HalTerms.Self] = selfLink;
+
+        // Add prev-* relations in sorted order
+        foreach (var kvp in links.Where(k => k.Key.StartsWith("prev-")).OrderBy(k => k.Key))
+        {
+            ordered[kvp.Key] = kvp.Value;
+        }
+
+        // Track which keys we've already added
+        var addedKeys = ordered.Keys.ToHashSet();
+
+        // Add HAL+JSON links alphabetically (null type = HAL+JSON default, excluding keys already added)
+        foreach (var kvp in links.Where(k => (k.Value.Type == MediaType.HalJson || k.Value.Type == null) && !addedKeys.Contains(k.Key)).OrderBy(k => k.Key))
+        {
+            ordered[kvp.Key] = kvp.Value;
+        }
+
+        // Add non-HAL+JSON links alphabetically (JSON, markdown, etc.)
+        foreach (var kvp in links.Where(k => k.Value.Type != null && k.Value.Type != MediaType.HalJson).OrderBy(k => k.Key))
+        {
+            ordered[kvp.Key] = kvp.Value;
+        }
+
+        return ordered;
+    }
 }
 
 [Description("Metadata about when and how this document was generated")]

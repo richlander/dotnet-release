@@ -21,6 +21,7 @@ public partial class ReleaseVersionIndexSerializerContext : JsonSerializerContex
     PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower,
     WriteIndented = true)]
 [JsonSerializable(typeof(ReleaseManifest))]
+[JsonSerializable(typeof(PartialManifest))]
 public partial class ReleaseManifestSerializerContext : JsonSerializerContext
 {
 }
@@ -78,6 +79,7 @@ public partial class TargetFrameworksSerializerContext : JsonSerializerContext
     PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower,
     WriteIndented = true)]
 [JsonSerializable(typeof(LlmsIndex))]
+[JsonSerializable(typeof(PartialLlmsIndex))]
 [JsonSerializable(typeof(LlmsWorkflow))]
 [JsonSerializable(typeof(HistoryMonthSummary))]
 public partial class LlmsIndexSerializerContext : JsonSerializerContext

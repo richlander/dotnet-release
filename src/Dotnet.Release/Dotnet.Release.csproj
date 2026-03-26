@@ -5,4 +5,8 @@
     <Description>Shared types for .NET release data models</Description>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Compile Remove="Summary\**" />
+  </ItemGroup>
+
 </Project>

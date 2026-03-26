@@ -81,3 +81,58 @@ public enum ReleaseKind
     [Description("Unspecified type")]
     Unknown
 }
+
+/// <summary>
+/// Legacy type for backward compatibility - prefer MajorReleaseVersionIndex or PatchReleaseVersionIndex
+/// </summary>
+[Description("Legacy index type - use MajorReleaseVersionIndex or PatchReleaseVersionIndex instead")]
+public record ReleaseVersionIndex(
+    [Description("Type of release document")]
+    ReleaseKind Kind,
+    [Description("Concise title for the document")]
+    string Title,
+    [Description("Description of the index scope")]
+    string Description,
+    [property: JsonPropertyName("_links"),
+     Description("HAL+JSON links for hypermedia navigation")]
+    Dictionary<string, HalLink> Links) : IReleaseVersionIndex
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull),
+     Description("Usage information and term definitions")]
+    public UsageWithLinks? Usage { get; set; }
+
+    [JsonPropertyName("_embedded"),
+     JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull),
+     Description("Embedded release entries for this index level")]
+    public ReleaseVersionIndexEmbedded? Embedded { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull),
+     Description("Lifecycle information")]
+    public Lifecycle? Lifecycle { get; set; }
+}
+
+[Description("Container for embedded release entries in a version index (legacy)")]
+public record ReleaseVersionIndexEmbedded(
+    [Description("List of release entries")]
+    List<ReleaseVersionIndexEntry> Releases);
+
+[Description("Individual release entry within a version index (legacy)")]
+public record ReleaseVersionIndexEntry(
+    [Description("Version identifier")]
+    string Version,
+    [property: JsonPropertyName("_links"),
+     Description("HAL+JSON links for navigation")]
+    Dictionary<string, HalLink> Links)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull),
+     Description("Lifecycle information (phase and release-date)")]
+    public PatchLifecycle? Lifecycle { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull),
+     Description("CVE IDs associated with this release")]
+    public IReadOnlyList<string>? CveRecords { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull),
+     Description("SDK versions included in this patch release")]
+    public IReadOnlyList<string>? SdkVersions { get; set; }
+}
