@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Dotnet.Release;
+using Dotnet.Release.Releases;
 using Dotnet.Release.Support;
 using Dotnet.Release.Tools;
 
@@ -52,12 +53,41 @@ if (args.Length > 2 && args[2] == "--export-template")
         case "dotnet-packages":
             DotnetPackagesGenerator.ExportTemplate(Console.Out);
             break;
+        case "releases":
+            ReleasesGenerator.ExportTemplate(Console.Out);
+            break;
         default:
             Console.Error.WriteLine($"Unknown type: {type}");
             PrintUsage();
             return 1;
     }
     return 0;
+}
+
+// Types that don't require a version number
+if (type is "releases-index" or "releases")
+{
+    string genPath = ".";
+    string? genTemplatePath = null;
+
+    for (int i = 2; i < args.Length; i++)
+    {
+        if (args[i] == "--template" && i + 1 < args.Length)
+        {
+            genTemplatePath = args[++i];
+        }
+        else if (!args[i].StartsWith('-'))
+        {
+            genPath = args[i];
+        }
+    }
+
+    return type switch
+    {
+        "releases-index" => await GenerateReleasesIndexAsync(genPath),
+        "releases" => await GenerateReleasesAsync(genPath, genTemplatePath),
+        _ => 1
+    };
 }
 
 if (args.Length < 3 || !decimal.TryParse(args[2], out _))
@@ -280,14 +310,73 @@ async Task<int> GenerateDotnetPackagesAsync(IAdaptivePath path, string version, 
     return 0;
 }
 
+async Task<int> GenerateReleasesIndexAsync(string basePath)
+{
+    Console.Error.WriteLine($"Generating {FileNames.ReleasesIndex} from {Path.GetFullPath(basePath)}...");
+
+    string outputPath = Path.Combine(basePath, FileNames.ReleasesIndex);
+    using var fileStream = File.Create(outputPath);
+
+    await ReleasesIndexGenerator.GenerateAsync(basePath, fileStream, Console.Error);
+
+    // Add trailing newline
+    fileStream.WriteByte((byte)'\n');
+
+    var info = new FileInfo(outputPath);
+    Console.Error.WriteLine($"Generated {info.Length} bytes");
+    Console.Error.WriteLine(info.FullName);
+    return 0;
+}
+
+async Task<int> GenerateReleasesAsync(string basePath, string? templatePath)
+{
+    Console.Error.WriteLine($"Generating releases.md from {Path.GetFullPath(basePath)}...");
+
+    string outputPath = Path.Combine(basePath, "releases.md");
+    await using (var output = new StreamWriter(File.Open(outputPath, FileMode.Create)))
+    {
+        await ReleasesGenerator.GenerateAsync(basePath, output, Console.Error, templatePath);
+    }
+
+    var info = new FileInfo(outputPath);
+    Console.Error.WriteLine($"Generated {info.Length} bytes");
+    Console.Error.WriteLine(info.FullName);
+    return 0;
+}
+
+async Task<int> VerifyReleasesAsync(string basePath, string? version, bool skipHash)
+{
+    string scope = version is not null ? $".NET {version}" : "all supported versions";
+    Console.Error.WriteLine($"Verifying release links for {scope} in {Path.GetFullPath(basePath)}...");
+
+    using var client = new HttpClient();
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("dotnet-release-verifier/1.0");
+    client.Timeout = TimeSpan.FromMinutes(5);
+
+    var report = await ReleasesVerifier.VerifyAsync(basePath, client, Console.Error, skipHash, version);
+
+    if (!report.HasIssues)
+    {
+        Console.Error.WriteLine("No issues found.");
+        return 0;
+    }
+
+    var ctx = new ReleasesVerificationReportContext();
+    ctx.Serialize(report, Console.Out);
+    return 2;
+}
+
 static void PrintUsage()
 {
     Console.Error.WriteLine("Usage: dotnet-release generate <type> <version> [path-or-url] [--template <file>]");
+    Console.Error.WriteLine("       dotnet-release generate releases-index [path]");
+    Console.Error.WriteLine("       dotnet-release generate releases [path] [--template <file>]");
     Console.Error.WriteLine("       dotnet-release generate <type> --export-template");
     Console.Error.WriteLine("       dotnet-release verify <type> <version> [path-or-url]");
+    Console.Error.WriteLine("       dotnet-release verify releases [version] [path] [--skip-hash]");
     Console.Error.WriteLine("       dotnet-release query distro-packages --dotnet-version <ver> [--output <file>]");
     Console.Error.WriteLine();
-    Console.Error.WriteLine("Types: supported-os, os-packages, dotnet-dependencies");
+    Console.Error.WriteLine("Types: supported-os, os-packages, dotnet-dependencies, releases-index, releases");
     Console.Error.WriteLine();
     Console.Error.WriteLine("Examples:");
     Console.Error.WriteLine("  dotnet-release generate supported-os 10.0");
@@ -296,10 +385,17 @@ static void PrintUsage()
     Console.Error.WriteLine("  dotnet-release generate dotnet-dependencies 11.0 ~/git/core/release-notes");
     Console.Error.WriteLine("  dotnet-release generate supported-os 10.0 ~/git/core/release-notes");
     Console.Error.WriteLine("  dotnet-release generate os-packages --export-template > my-template.md");
+    Console.Error.WriteLine("  dotnet-release generate releases-index ~/git/core/release-notes");
+    Console.Error.WriteLine("  dotnet-release generate releases ~/git/core/release-notes");
+    Console.Error.WriteLine("  dotnet-release generate releases --export-template > my-template.md");
     Console.Error.WriteLine("  dotnet-release verify supported-os 10.0");
     Console.Error.WriteLine("  dotnet-release verify supported-os 10.0 ~/git/core/release-notes");
     Console.Error.WriteLine("  dotnet-release verify os-packages 10.0");
     Console.Error.WriteLine("  dotnet-release verify os-packages 10.0 ~/git/core/release-notes");
+    Console.Error.WriteLine("  dotnet-release verify releases ~/git/core/release-notes");
+    Console.Error.WriteLine("  dotnet-release verify releases 10.0 ~/git/core/release-notes");
+    Console.Error.WriteLine("  dotnet-release verify releases 10.0.5 ~/git/core/release-notes");
+    Console.Error.WriteLine("  dotnet-release verify releases ~/git/core/release-notes --skip-hash");
     Console.Error.WriteLine("  dotnet-release query distro-packages --dotnet-version 9.0");
     Console.Error.WriteLine("  dotnet-release query distro-packages --dotnet-version 9.0 --output distro-packages.json");
     Console.Error.WriteLine();
@@ -317,11 +413,50 @@ async Task<int> HandleVerifyAsync(string[] args)
 
     string verifyType = args[1];
 
-    if (verifyType is not "supported-os" and not "os-packages")
+    if (verifyType is not "supported-os" and not "os-packages" and not "releases")
     {
         Console.Error.WriteLine($"Unknown verify type: {verifyType}");
         PrintUsage();
         return 1;
+    }
+
+    // "verify releases" accepts an optional version filter
+    if (verifyType == "releases")
+    {
+        string verifyPath = ".";
+        string? verifyVersion = null;
+        bool skipHash = false;
+
+        for (int i = 2; i < args.Length; i++)
+        {
+            if (args[i] == "--skip-hash")
+            {
+                skipHash = true;
+            }
+            else if (!args[i].StartsWith('-'))
+            {
+                // Distinguish version from path: versions contain only digits and dots
+                if (verifyVersion is null && args[i].Length > 0 && char.IsDigit(args[i][0]) && args[i].All(c => char.IsDigit(c) || c == '.' || c == '-' || char.IsLetter(c)))
+                {
+                    // Could be a version like "10.0" or "10.0.5" or a path like "/tmp"
+                    // Treat as version if it matches a version-like pattern (starts with digit.digit)
+                    if (args[i].Contains('.') && char.IsDigit(args[i][0]) && !Path.IsPathRooted(args[i]) && !args[i].Contains(Path.DirectorySeparatorChar))
+                    {
+                        verifyVersion = args[i];
+                    }
+                    else
+                    {
+                        verifyPath = args[i];
+                    }
+                }
+                else
+                {
+                    verifyPath = args[i];
+                }
+            }
+        }
+
+        return await VerifyReleasesAsync(verifyPath, verifyVersion, skipHash);
     }
 
     if (!decimal.TryParse(args[2], out _))
