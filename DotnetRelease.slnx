@@ -4,11 +4,13 @@
     <Project Path="src/Dotnet.Release.Graph/Dotnet.Release.Graph.csproj" />
     <Project Path="src/Dotnet.Release.Releases/Dotnet.Release.Releases.csproj" />
     <Project Path="src/Dotnet.Release.Cve/Dotnet.Release.Cve.csproj" />
+    <Project Path="src/Dotnet.Release.Changes/Dotnet.Release.Changes.csproj" />
     <Project Path="src/Dotnet.Release.Support/Dotnet.Release.Support.csproj" />
     <Project Path="src/Dotnet.Release.Client/Dotnet.Release.Client.csproj" />
     <Project Path="src/Dotnet.Release.Tools/Dotnet.Release.Tools.csproj" />
     <Project Path="src/Dotnet.Release.CveHandler/Dotnet.Release.CveHandler.csproj" />
     <Project Path="src/Dotnet.Release.CveEnricher/Dotnet.Release.CveEnricher.csproj" />
+    <Project Path="src/Dotnet.Release.ChangesHandler/Dotnet.Release.ChangesHandler.csproj" />
     <Project Path="src/Dotnet.Release.IndexGenerator/Dotnet.Release.IndexGenerator.csproj" />
   </Folder>
   <Folder Name="/test/">

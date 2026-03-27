@@ -9,6 +9,7 @@ public static class FileNames
     public const string Releases = "releases.json";
     public const string Release = "release.json";
     public const string Cve = "cve.json";
+    public const string Changes = "changes.json";
     public const string SupportedOs = "supported-os.json";
     public const string OsPackages = "os-packages.json";
     public const string Dependencies = "dependencies.json";
