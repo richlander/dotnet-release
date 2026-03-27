@@ -1,5 +1,7 @@
 using System.Text.Json;
 using Dotnet.Release;
+using Dotnet.Release.Changes;
+using Dotnet.Release.ChangesHandler;
 using Dotnet.Release.IndexGenerator;
 using Dotnet.Release.Releases;
 using Dotnet.Release.Summary;
@@ -8,10 +10,11 @@ using Dotnet.Release.Tools;
 
 // Usage: dotnet-release generate <type> <version> [path-or-url] [--template <file>]
 //        dotnet-release generate <type> --export-template
+//        dotnet-release generate changes <repo-path> --base <ref> --head <ref> [--branch <branch>] [--version <ver>] [--date <date>] [--output <file>]
 //        dotnet-release generate version-index|timeline-index|llms-index|indexes <input-dir> [output-dir] [--url-root <url>]
 //        dotnet-release verify <type> <version> [path-or-url]
 //        dotnet-release query distro-packages --dotnet-version <ver> [--output <file>]
-// Types: supported-os, os-packages
+// Types: supported-os, os-packages, changes
 
 if (args.Length < 2)
 {
@@ -65,6 +68,12 @@ if (args.Length > 2 && args[2] == "--export-template")
             return 1;
     }
     return 0;
+}
+
+// Changes generator: dotnet-release generate changes <repo-path> --base <ref> --head <ref> ...
+if (type == "changes")
+{
+    return await HandleGenerateChangesAsync(args);
 }
 
 // Types that don't require a version number
@@ -496,11 +505,128 @@ async Task<int> VerifyReleasesAsync(string basePath, string? version, bool skipH
     return 2;
 }
 
+async Task<int> HandleGenerateChangesAsync(string[] args)
+{
+    string? repoPath = null;
+    string? baseRef = null;
+    string? headRef = null;
+    string? branch = null;
+    string? version = "";
+    string? date = "";
+    string? outputPath = null;
+    string? cveRepoPath = null;
+    bool fetchLabels = false;
+    bool jsonl = false;
+
+    for (int i = 2; i < args.Length; i++)
+    {
+        if (args[i] == "--base" && i + 1 < args.Length)
+        {
+            baseRef = args[++i];
+        }
+        else if (args[i] == "--head" && i + 1 < args.Length)
+        {
+            headRef = args[++i];
+        }
+        else if (args[i] == "--branch" && i + 1 < args.Length)
+        {
+            branch = args[++i];
+        }
+        else if (args[i] == "--version" && i + 1 < args.Length)
+        {
+            version = args[++i];
+        }
+        else if (args[i] == "--date" && i + 1 < args.Length)
+        {
+            date = args[++i];
+        }
+        else if (args[i] == "--output" && i + 1 < args.Length)
+        {
+            outputPath = args[++i];
+        }
+        else if (args[i] == "--cve-repo" && i + 1 < args.Length)
+        {
+            cveRepoPath = args[++i];
+        }
+        else if (args[i] == "--labels")
+        {
+            fetchLabels = true;
+        }
+        else if (args[i] == "--jsonl")
+        {
+            jsonl = true;
+        }
+        else if (!args[i].StartsWith('-'))
+        {
+            repoPath = args[i];
+        }
+    }
+
+    if (repoPath is null || baseRef is null || headRef is null)
+    {
+        Console.Error.WriteLine("Error: generate changes requires <repo-path>, --base <ref>, and --head <ref>");
+        PrintUsage();
+        return 1;
+    }
+
+    var token = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
+    if (string.IsNullOrEmpty(token))
+    {
+        Console.Error.WriteLine("Error: GITHUB_TOKEN environment variable is required for generate changes");
+        return 1;
+    }
+
+    using var httpClient = new HttpClient();
+    httpClient.DefaultRequestHeaders.Add("Authorization", $"token {token}");
+    httpClient.DefaultRequestHeaders.Add("User-Agent", "dotnet-release-tool");
+
+    var generator = new ChangesGenerator(httpClient);
+    var records = await generator.GenerateAsync(
+        repoPath,
+        baseRef,
+        headRef,
+        branch ?? "",
+        version ?? "",
+        date ?? "",
+        fetchLabels: fetchLabels
+    );
+
+    Console.Error.WriteLine($"Generated {records.Changes.Count} change entries with {records.Commits.Count} commits.");
+
+    // Cross-reference with CVE data if --cve-repo is provided
+    if (cveRepoPath is not null)
+    {
+        Console.Error.WriteLine("Cross-referencing with CVE data...");
+        records = await CveCrossReference.ApplyAsync(records, cveRepoPath, repoPath, baseRef, headRef);
+    }
+
+    // Write output
+    var writeAction = jsonl
+        ? (Action<ChangeRecords, TextWriter>)ChangesGenerator.WriteJsonl
+        : ChangesGenerator.Write;
+
+    if (outputPath is not null)
+    {
+        using var writer = new StreamWriter(File.Open(outputPath, FileMode.Create));
+        writeAction(records, writer);
+        var info = new FileInfo(outputPath);
+        Console.Error.WriteLine($"Wrote {info.Length} bytes to {info.FullName}");
+    }
+    else
+    {
+        writeAction(records, Console.Out);
+        Console.Out.WriteLine();
+    }
+
+    return 0;
+}
+
 static void PrintUsage()
 {
     Console.Error.WriteLine("Usage: dotnet-release generate <type> <version> [path-or-url] [--template <file>]");
     Console.Error.WriteLine("       dotnet-release generate releases-index [path]");
     Console.Error.WriteLine("       dotnet-release generate releases [path] [--template <file>]");
+    Console.Error.WriteLine("       dotnet-release generate changes <repo-path> --base <ref> --head <ref> [options]");
     Console.Error.WriteLine("       dotnet-release generate version-index <input-dir> [output-dir] [--url-root <url>]");
     Console.Error.WriteLine("       dotnet-release generate timeline-index <input-dir> [output-dir] [--url-root <url>]");
     Console.Error.WriteLine("       dotnet-release generate llms-index <input-dir> [output-dir] [--url-root <url>]");
@@ -510,8 +636,19 @@ static void PrintUsage()
     Console.Error.WriteLine("       dotnet-release verify releases [version] [path] [--skip-hash]");
     Console.Error.WriteLine("       dotnet-release query distro-packages --dotnet-version <ver> [--output <file>]");
     Console.Error.WriteLine();
-    Console.Error.WriteLine("Types: supported-os, os-packages, dotnet-dependencies, releases-index, releases,");
-    Console.Error.WriteLine("       version-index, timeline-index, llms-index, indexes");
+    Console.Error.WriteLine("Types: supported-os, os-packages, dotnet-dependencies, changes, releases-index,");
+    Console.Error.WriteLine("       releases, version-index, timeline-index, llms-index, indexes");
+    Console.Error.WriteLine();
+    Console.Error.WriteLine("Changes options:");
+    Console.Error.WriteLine("  --base <ref>       Base git ref (tag, branch, or commit)");
+    Console.Error.WriteLine("  --head <ref>       Head git ref (tag, branch, or commit)");
+    Console.Error.WriteLine("  --branch <name>    Branch name for commit metadata (e.g. main, release/9.0)");
+    Console.Error.WriteLine("  --version <ver>    Release version string for the output");
+    Console.Error.WriteLine("  --date <date>      Release date (ISO 8601) for the output");
+    Console.Error.WriteLine("  --cve-repo <path>  Path to dotnet/core clone (cross-references CVE data from release-index branch)");
+    Console.Error.WriteLine("  --labels           Fetch PR labels from GitHub (adds labels field to each change)");
+    Console.Error.WriteLine("  --jsonl            Output JSONL (one repo per line) instead of single JSON");
+    Console.Error.WriteLine("  --output <file>    Write output to file instead of stdout");
     Console.Error.WriteLine();
     Console.Error.WriteLine("Examples:");
     Console.Error.WriteLine("  dotnet-release generate supported-os 10.0");
@@ -523,6 +660,8 @@ static void PrintUsage()
     Console.Error.WriteLine("  dotnet-release generate releases-index ~/git/core/release-notes");
     Console.Error.WriteLine("  dotnet-release generate releases ~/git/core/release-notes");
     Console.Error.WriteLine("  dotnet-release generate releases --export-template > my-template.md");
+    Console.Error.WriteLine("  dotnet-release generate changes ~/git/dotnet --base v11.0.0-preview.1.25060.1 --head v11.0.0-preview.2.26159.112");
+    Console.Error.WriteLine("  dotnet-release generate changes ~/git/dotnet --base v11.0.0-preview.2.26159.112 --head main --branch main --output changes.json");
     Console.Error.WriteLine("  dotnet-release generate version-index ~/git/core/release-notes");
     Console.Error.WriteLine("  dotnet-release generate timeline-index ~/git/core/release-notes /tmp/output");
     Console.Error.WriteLine("  dotnet-release generate llms-index ~/git/core/release-notes");
@@ -539,6 +678,7 @@ static void PrintUsage()
     Console.Error.WriteLine("  dotnet-release query distro-packages --dotnet-version 9.0 --output distro-packages.json");
     Console.Error.WriteLine();
     Console.Error.WriteLine("Environment variables:");
+    Console.Error.WriteLine("  GITHUB_TOKEN    GitHub API token (required for generate changes)");
     Console.Error.WriteLine("  PKGS_ORG_TOKEN  API token for pkgs.org (Gold+ subscription required)");
 }
 

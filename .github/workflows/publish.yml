@@ -24,7 +24,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '11.0.x'
           dotnet-quality: 'preview'
 
       - name: Pack libraries
@@ -56,7 +56,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '11.0.x'
           dotnet-quality: 'preview'
 
       - name: Pack AOT (${{ matrix.rid }})
@@ -79,7 +79,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '11.0.x'
           dotnet-quality: 'preview'
 
       - name: Pack CoreCLR fallback
@@ -108,7 +108,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '11.0.x'
           dotnet-quality: 'preview'
 
       - name: Push RID-specific packages first
