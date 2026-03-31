@@ -134,7 +134,7 @@ if (args.Length < 3 || !decimal.TryParse(args[2], out _))
 }
 
 string version = args[2];
-string basePath = "https://raw.githubusercontent.com/dotnet/core/main/release-notes/";
+string basePath = Location.GitHubBaseUri;
 string? templatePath = null;
 
 // Parse remaining args
@@ -171,12 +171,36 @@ switch (type)
 
 async Task<int> GenerateSupportedOsAsync(IAdaptivePath path, string version, HttpClient client, string? templatePath)
 {
-    string jsonPath = path.Combine(version, "supported-os.json");
+    string jsonPath = path.Combine(version, FileNames.SupportedOs);
     Console.Error.WriteLine($"Reading {jsonPath}...");
 
     using var stream = await path.GetStreamAsync(jsonPath);
     var matrix = await JsonSerializer.DeserializeAsync(stream, SupportedOSMatrixSerializerContext.Default.SupportedOSMatrix)
         ?? throw new InvalidOperationException("Failed to deserialize supported-os.json");
+
+    // Fetch release metadata for support phase and release type
+    string? supportPhase = null;
+    string? releaseType = null;
+
+    string releasesPath = path.Combine(version, FileNames.Releases);
+    Console.Error.WriteLine($"Reading {releasesPath}...");
+
+    try
+    {
+        using var releasesStream = await path.GetStreamAsync(releasesPath);
+        var overview = await JsonSerializer.DeserializeAsync(releasesStream, MajorReleaseOverviewSerializerContext.Default.MajorReleaseOverview);
+
+        if (overview is not null)
+        {
+            supportPhase = overview.SupportPhase.ToDisplayName();
+            releaseType = overview.ReleaseType.ToDisplayName();
+            Console.Error.WriteLine($"Release status: {supportPhase}, {releaseType}");
+        }
+    }
+    catch (Exception ex) when (ex is HttpRequestException or FileNotFoundException)
+    {
+        Console.Error.WriteLine($"Could not read releases.json: {ex.Message}");
+    }
 
     TextWriter output;
     string? outputPath = null;
@@ -191,7 +215,7 @@ async Task<int> GenerateSupportedOsAsync(IAdaptivePath path, string version, Htt
         output = Console.Out;
     }
 
-    await SupportedOsGenerator.GenerateAsync(matrix, output, version, client, templatePath: templatePath);
+    await SupportedOsGenerator.GenerateAsync(matrix, output, version, client, supportPhase: supportPhase, releaseType: releaseType, templatePath: templatePath);
 
     if (outputPath is not null)
     {
@@ -746,7 +770,7 @@ async Task<int> HandleVerifyAsync(string[] args)
     }
 
     string version = args[2];
-    string basePath = args.Length > 3 && !args[3].StartsWith('-') ? args[3] : "https://raw.githubusercontent.com/dotnet/core/main/release-notes/";
+    string basePath = args.Length > 3 && !args[3].StartsWith('-') ? args[3] : Location.GitHubBaseUri;
 
     using var client = new HttpClient();
     var path = AdaptivePath.Create(basePath, client);

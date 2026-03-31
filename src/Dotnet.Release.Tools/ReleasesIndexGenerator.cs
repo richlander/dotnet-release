@@ -99,7 +99,7 @@ public static class ReleasesIndexGenerator
         return ".NET Core";
     }
 
-    internal static string FormatSupportPhase(SupportPhase phase) => phase switch
+    public static string FormatSupportPhase(SupportPhase phase) => phase switch
     {
         SupportPhase.Preview => "preview",
         SupportPhase.GoLive => "go-live",
@@ -109,7 +109,7 @@ public static class ReleasesIndexGenerator
         _ => phase.ToString().ToLowerInvariant()
     };
 
-    internal static string FormatReleaseType(ReleaseType type) => type switch
+    public static string FormatReleaseType(ReleaseType type) => type switch
     {
         ReleaseType.LTS => "lts",
         ReleaseType.STS => "sts",
