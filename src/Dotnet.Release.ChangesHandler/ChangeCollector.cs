@@ -16,13 +16,14 @@ public partial class ChangeCollector(HttpClient httpClient)
     /// Gets the PRs merged between two commits in a repo via the GitHub compare API.
     /// Returns a list of (PR number, PR title, PR URL, merge commit SHA).
     /// </summary>
-    public async Task<List<PullRequestInfo>> GetMergedPullRequestsAsync(
+    public async Task<CompareResult> GetMergedPullRequestsAsync(
         string org, string repo, string baseSha, string headSha)
     {
         var prs = new Dictionary<int, PullRequestInfo>();
 
         // Use compare API to get commits in range
         var commits = await GetCompareCommitsAsync(org, repo, baseSha, headSha);
+        var orderedShas = commits.Select(c => c.Sha).ToList();
 
         foreach (var commit in commits)
         {
@@ -40,7 +41,7 @@ public partial class ChangeCollector(HttpClient httpClient)
             }
         }
 
-        return [.. prs.Values];
+        return new CompareResult([.. prs.Values], orderedShas);
     }
 
     /// <summary>
@@ -192,6 +193,11 @@ public partial class ChangeCollector(HttpClient httpClient)
 /// A PR discovered from the compare API commit range.
 /// </summary>
 public record PullRequestInfo(int Number, string Title, string Url, string MergeCommitSha, IList<string>? Labels = null);
+
+/// <summary>
+/// Result of comparing two commits: extracted PRs and the full ordered commit SHA list.
+/// </summary>
+public record CompareResult(List<PullRequestInfo> PullRequests, List<string> CommitShas);
 
 internal record CompareCommit(string Sha, string Message);
 
