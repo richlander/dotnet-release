@@ -72,6 +72,26 @@ public enum ProductComponent
     SDK
 }
 
+public static class ReleaseDisplayNames
+{
+    public static string ToDisplayName(this SupportPhase phase) => phase switch
+    {
+        SupportPhase.Preview => "Preview",
+        SupportPhase.GoLive => "Go Live",
+        SupportPhase.Active => "Active",
+        SupportPhase.Maintenance => "Maintenance",
+        SupportPhase.Eol => "End of Life",
+        _ => phase.ToString()
+    };
+
+    public static string ToDisplayName(this ReleaseType type) => type switch
+    {
+        ReleaseType.LTS => "LTS",
+        ReleaseType.STS => "STS",
+        _ => type.ToString()
+    };
+}
+
 public static class ReleaseStability
 {
     public static bool IsStable(SupportPhase phase) => phase is SupportPhase.Active or SupportPhase.Maintenance;

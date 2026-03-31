@@ -199,13 +199,5 @@ public static class ReleasesGenerator
 
     static string FormatDate(DateOnly date) => date.ToString("MMMM d, yyyy");
 
-    static string FormatSupportPhase(SupportPhase phase) => phase switch
-    {
-        SupportPhase.Preview => "Preview",
-        SupportPhase.GoLive => "Go Live",
-        SupportPhase.Active => "Active",
-        SupportPhase.Maintenance => "Maintenance",
-        SupportPhase.Eol => "End of life",
-        _ => phase.ToString()
-    };
+    static string FormatSupportPhase(SupportPhase phase) => phase.ToDisplayName();
 }
