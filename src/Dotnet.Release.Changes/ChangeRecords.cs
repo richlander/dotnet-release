@@ -33,7 +33,7 @@ public record ChangeEntry(
     [property: Description("Public GitHub PR URL; empty string if PR is non-public.")]
     string Url,
 
-    [property: Description("Key into the top-level commits dictionary (child repo commit).")]
+    [property: Description("Key into the top-level commits dictionary (dotnet/dotnet VMR commit).")]
     string Commit,
 
     [property: Description("True if this is a security change.")]
@@ -51,8 +51,12 @@ public record ChangeEntry(
         JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     string? CveId = null,
 
-    [property: Description("Key into the top-level commits dictionary (dotnet/dotnet commit)."),
+    [property: Description("Key into the top-level commits dictionary (source-repo commit, e.g. runtime, aspnetcore)."),
         JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? LocalRepoCommit = null,
+
+    [property: Description("Internal staging field for VMR commit mapping; never serialized."),
+        JsonIgnore]
     string? DotnetCommit = null,
 
     [property: Description("GitHub PR labels from the child repo."),
