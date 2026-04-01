@@ -101,7 +101,7 @@ public class ChangesGenerator(HttpClient httpClient)
                 labelMap?.TryGetValue(pr.Number, out labels);
 
                 changes.Add(new ChangeEntry(
-                    Id: pr.Number,
+                    Id: commitKey,
                     Repo: diff.Path,
                     Title: pr.Title,
                     Url: pr.Url,
