@@ -11,7 +11,8 @@ public class BuildMetadataGenerator(NuGetFeedClient nuGetClient)
     private static readonly string[] RefPackIds =
     [
         "Microsoft.NETCore.App.Ref",
-        "Microsoft.AspNetCore.App.Ref"
+        "Microsoft.AspNetCore.App.Ref",
+        "Microsoft.WindowsDesktop.App.Ref"
     ];
 
     /// <summary>
