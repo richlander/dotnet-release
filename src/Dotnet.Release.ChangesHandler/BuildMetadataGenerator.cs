@@ -15,6 +15,13 @@ public class BuildMetadataGenerator(NuGetFeedClient nuGetClient)
         "Microsoft.WindowsDesktop.App.Ref"
     ];
 
+    // Annual-cadence packages not included in any ref pack
+    private static readonly string[] StandalonePackageIds =
+    [
+        "Microsoft.EntityFrameworkCore",
+        "Microsoft.Data.Sqlite.Core"
+    ];
+
     /// <summary>
     /// Generates build metadata for a VMR repo between two refs.
     /// </summary>
@@ -27,7 +34,7 @@ public class BuildMetadataGenerator(NuGetFeedClient nuGetClient)
         var packages = new Dictionary<string, string>();
         string? buildVersion = null;
 
-        foreach (var packageId in RefPackIds)
+        foreach (var packageId in RefPackIds.Concat(StandalonePackageIds))
         {
             var version = await nuGetClient.GetLatestVersionAsync(
                 feedUrl, packageId, versionProps.PreReleaseBranding);
