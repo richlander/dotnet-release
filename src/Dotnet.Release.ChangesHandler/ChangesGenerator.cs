@@ -33,6 +33,7 @@ public class ChangesGenerator(HttpClient httpClient)
 
         var changes = new List<ChangeEntry>();
         var commits = new Dictionary<string, CommitEntry>();
+        var repoCommitOrder = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var diff in diffs)
         {
@@ -44,16 +45,20 @@ public class ChangesGenerator(HttpClient httpClient)
 
             Console.Error.WriteLine($"  {diff.Path}: comparing {diff.BaseSha[..7]}...{diff.HeadSha[..7]}");
 
-            List<PullRequestInfo> prs;
+            CompareResult compareResult;
             try
             {
-                prs = await _collector.GetMergedPullRequestsAsync(diff.Org, diff.Repo, diff.BaseSha, diff.HeadSha);
+                compareResult = await _collector.GetMergedPullRequestsAsync(diff.Org, diff.Repo, diff.BaseSha, diff.HeadSha);
             }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"    Warning: failed to collect PRs for {diff.Org}/{diff.Repo}: {ex.Message}");
                 continue;
             }
+
+            var prs = compareResult.PullRequests;
+            repoCommitOrder[diff.Path] = EnsureChronologicalOrder(
+                compareResult.CommitShas, diff.HeadSha, diff.Path);
 
             Console.Error.WriteLine($"    Found {prs.Count} PRs");
 
@@ -108,12 +113,52 @@ public class ChangesGenerator(HttpClient httpClient)
             }
         }
 
+        // Map source-repo commits to VMR (dotnet/dotnet) commits via manifest diffs
+        Console.Error.WriteLine("Mapping source commits to VMR commits...");
+        var vmrMapping = await VmrCommitMapper.MapAsync(
+            repoPath, baseRef, headRef, diffs, commits, repoCommitOrder);
+        VmrCommitMapper.Apply(vmrMapping, changes, commits, branch);
+        Console.Error.WriteLine($"Mapped {vmrMapping.Count} of {commits.Count} source commit(s) to VMR.");
+
         return new ChangeRecords(
             ReleaseVersion: releaseVersion,
             ReleaseDate: releaseDate,
             Changes: changes,
             Commits: commits
         );
+    }
+
+    /// <summary>
+    /// Validates that the compare API commit list is in chronological order (oldest first).
+    /// The head SHA should be the last entry. If reversed, corrects the order.
+    /// Returns an empty list if ordering cannot be determined.
+    /// </summary>
+    private static List<string> EnsureChronologicalOrder(
+        List<string> commitShas, string headSha, string repoPath)
+    {
+        if (commitShas.Count == 0)
+        {
+            return commitShas;
+        }
+
+        // Chronological: head SHA is at the end
+        if (commitShas[^1].Equals(headSha, StringComparison.OrdinalIgnoreCase))
+        {
+            return commitShas;
+        }
+
+        // Reverse chronological: head SHA is at the beginning — reverse to fix
+        if (commitShas[0].Equals(headSha, StringComparison.OrdinalIgnoreCase))
+        {
+            commitShas.Reverse();
+            return commitShas;
+        }
+
+        // Cannot determine order — return empty to skip ordering-dependent mapping
+        Console.Error.WriteLine(
+            $"    Warning: could not verify commit ordering for {repoPath}; " +
+            $"VMR mapping may be incomplete for multi-codeflow ranges");
+        return [];
     }
 
     /// <summary>
