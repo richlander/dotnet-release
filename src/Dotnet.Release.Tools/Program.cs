@@ -76,6 +76,12 @@ if (type == "changes")
     return await HandleGenerateChangesAsync(args);
 }
 
+// Build metadata generator: dotnet-release generate build-metadata <repo-path> --base <ref> --head <ref> [--output file]
+if (type == "build-metadata")
+{
+    return await HandleGenerateBuildMetadataAsync(args);
+}
+
 // Types that don't require a version number
 if (type is "releases-index" or "releases" or "version-index" or "timeline-index" or "llms-index" or "indexes")
 {
@@ -875,6 +881,60 @@ async Task<int> HandleQueryAsync(string[] args)
 
     // Serialize output
     string json = JsonSerializer.Serialize(overview, DistroPackagesSerializerContext.Default.DistroPackagesOverview);
+
+    if (outputPath is not null)
+    {
+        await File.WriteAllTextAsync(outputPath, json);
+        var info = new FileInfo(outputPath);
+        Console.Error.WriteLine($"\nWrote {info.Length} bytes to {info.FullName}");
+    }
+    else
+    {
+        Console.Out.WriteLine(json);
+    }
+
+    return 0;
+}
+
+async Task<int> HandleGenerateBuildMetadataAsync(string[] args)
+{
+    string? repoPath = null;
+    string? baseRef = null;
+    string? headRef = null;
+    string? outputPath = null;
+
+    for (int i = 2; i < args.Length; i++)
+    {
+        if (args[i] == "--base" && i + 1 < args.Length)
+        {
+            baseRef = args[++i];
+        }
+        else if (args[i] == "--head" && i + 1 < args.Length)
+        {
+            headRef = args[++i];
+        }
+        else if (args[i] == "--output" && i + 1 < args.Length)
+        {
+            outputPath = args[++i];
+        }
+        else if (!args[i].StartsWith('-'))
+        {
+            repoPath = args[i];
+        }
+    }
+
+    if (repoPath is null || baseRef is null || headRef is null)
+    {
+        Console.Error.WriteLine("Usage: dotnet-release generate build-metadata <repo-path> --base <ref> --head <ref> [--output file]");
+        return 1;
+    }
+
+    using var httpClient = new HttpClient();
+    var nugetClient = new NuGetFeedClient(httpClient);
+    var generator = new BuildMetadataGenerator(nugetClient);
+
+    var metadata = await generator.GenerateAsync(repoPath, baseRef, headRef);
+    var json = JsonSerializer.Serialize(metadata, ChangesSerializerContext.Default.BuildMetadata);
 
     if (outputPath is not null)
     {

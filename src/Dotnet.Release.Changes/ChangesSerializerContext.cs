@@ -6,6 +6,7 @@ namespace Dotnet.Release.Changes;
     PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower,
     WriteIndented = true)]
 [JsonSerializable(typeof(ChangeRecords))]
+[JsonSerializable(typeof(BuildMetadata))]
 public partial class ChangesSerializerContext : JsonSerializerContext
 {
 }
