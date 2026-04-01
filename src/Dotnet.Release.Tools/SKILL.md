@@ -40,6 +40,7 @@ Options:
 - `--output <file>` — Write output to file instead of stdout
 
 Examples:
+
 ```bash
 # Changes between two preview tags
 dotnet-release generate changes ~/git/dotnet \
@@ -67,6 +68,7 @@ Output includes:
 - NuGet feed URL and ref pack/standalone package versions
 
 Example output:
+
 ```json
 {
   "version": "11.0.0-preview.3",
@@ -91,6 +93,7 @@ Example output:
 ```
 
 Using build metadata with dotnet-inspect for API verification:
+
 ```bash
 # Read values from build-metadata.json
 VER="11.0.0-preview.3.26179.102"
