@@ -129,6 +129,36 @@ public class ChangesGenerator(HttpClient httpClient)
     }
 
     /// <summary>
+    /// Collapses the two-commit representation so that Commit references the VMR commit
+    /// and LocalRepoCommit references the source-repo commit.
+    /// </summary>
+    public static ChangeRecords CollapseToVmrCommits(ChangeRecords records)
+    {
+        var newChanges = new List<ChangeEntry>(records.Changes.Count);
+
+        foreach (var change in records.Changes)
+        {
+            if (change.DotnetCommit is not null)
+            {
+                // VMR mapping exists: commit → VMR, local_repo_commit → source
+                newChanges.Add(change with
+                {
+                    LocalRepoCommit = change.Commit,
+                    Commit = change.DotnetCommit,
+                    DotnetCommit = null
+                });
+            }
+            else
+            {
+                // No VMR mapping: keep source-repo commit as-is
+                newChanges.Add(change);
+            }
+        }
+
+        return new ChangeRecords(records.ReleaseVersion, records.ReleaseDate, newChanges, records.Commits);
+    }
+
+    /// <summary>
     /// Validates that the compare API commit list is in chronological order (oldest first).
     /// The head SHA should be the last entry. If reversed, corrects the order.
     /// Returns an empty list if ordering cannot be determined.
@@ -185,7 +215,7 @@ public class ChangesGenerator(HttpClient httpClient)
 
             // Collect only commits referenced by this repo's changes
             var repoCommitKeys = repoChanges.Select(c => c.Commit)
-                .Concat(repoChanges.Where(c => c.DotnetCommit is not null).Select(c => c.DotnetCommit!))
+                .Concat(repoChanges.Where(c => c.LocalRepoCommit is not null).Select(c => c.LocalRepoCommit!))
                 .Distinct()
                 .ToHashSet();
             var repoCommits = records.Commits

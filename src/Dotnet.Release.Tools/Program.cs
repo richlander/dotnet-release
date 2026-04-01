@@ -624,6 +624,10 @@ async Task<int> HandleGenerateChangesAsync(string[] args)
         records = await CveCrossReference.ApplyAsync(records, cveRepoPath, repoPath, baseRef, headRef);
     }
 
+    // Collapse to VMR-only commits: commit = dotnet_commit, drop source-repo entries
+    records = ChangesGenerator.CollapseToVmrCommits(records);
+    Console.Error.WriteLine($"Collapsed to {records.Commits.Count} VMR commit(s).");
+
     // Write output
     var writeAction = jsonl
         ? (Action<ChangeRecords, TextWriter>)ChangesGenerator.WriteJsonl
