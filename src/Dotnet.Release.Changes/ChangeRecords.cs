@@ -21,8 +21,8 @@ public record ChangeRecords(
 
 [Description("An externally visible change artifact (PR or commit-backed security change).")]
 public record ChangeEntry(
-    [property: Description("GitHub PR number; 0 if no public PR exists.")]
-    int Id,
+    [property: Description("Globally unique change identifier (commit key, e.g. \"runtime@c5d5be4\").")]
+    string Id,
 
     [property: Description("Short repository name, e.g. \"runtime\".")]
     string Repo,

@@ -327,7 +327,7 @@ public static class CveCrossReference
 
             // Security PRs are non-public; CVE data is the source of truth
             newChanges.Add(new ChangeEntry(
-                Id: 0,
+                Id: dotnetCommitKey,
                 Repo: "dotnet",
                 Title: "",
                 Url: "",
