@@ -17,6 +17,7 @@ public record BuildMetadata(
     [property: Description("Build version information.")]
     BuildInfo Build,
 
+    [property: JsonPropertyName("nuget")]
     [property: Description("NuGet feed and package information for API verification.")]
     NuGetInfo NuGet
 );

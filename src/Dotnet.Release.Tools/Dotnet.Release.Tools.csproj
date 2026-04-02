@@ -41,6 +41,7 @@
     <EmbeddedResource Include="dotnet-dependencies-template.md" />
     <EmbeddedResource Include="dotnet-packages-template.md" />
     <EmbeddedResource Include="releases-template.md" />
+    <EmbeddedResource Include="SKILL.md" />
   </ItemGroup>
 
 </Project>

@@ -16,6 +16,11 @@ using Dotnet.Release.Tools;
 //        dotnet-release query distro-packages --dotnet-version <ver> [--output <file>]
 // Types: supported-os, os-packages, changes
 
+if (args.Length >= 1 && args[0] == "skill")
+{
+    return PrintSkill();
+}
+
 if (args.Length < 2)
 {
     PrintUsage();
@@ -655,12 +660,28 @@ async Task<int> HandleGenerateChangesAsync(string[] args)
     return 0;
 }
 
+static int PrintSkill()
+{
+    using var stream = typeof(Program).Assembly.GetManifestResourceStream("Dotnet.Release.Tools.SKILL.md");
+
+    if (stream is null)
+    {
+        Console.Error.WriteLine("Error: SKILL.md resource not found.");
+        return 1;
+    }
+
+    using var reader = new StreamReader(stream);
+    Console.WriteLine(reader.ReadToEnd());
+    return 0;
+}
+
 static void PrintUsage()
 {
     Console.Error.WriteLine("Usage: dotnet-release generate <type> <version> [path-or-url] [--template <file>]");
     Console.Error.WriteLine("       dotnet-release generate releases-index [path]");
     Console.Error.WriteLine("       dotnet-release generate releases [path] [--template <file>]");
     Console.Error.WriteLine("       dotnet-release generate changes <repo-path> --base <ref> --head <ref> [options]");
+    Console.Error.WriteLine("       dotnet-release generate build-metadata <repo-path> --base <ref> --head <ref> [--output <file>]");
     Console.Error.WriteLine("       dotnet-release generate version-index <input-dir> [output-dir] [--url-root <url>]");
     Console.Error.WriteLine("       dotnet-release generate timeline-index <input-dir> [output-dir] [--url-root <url>]");
     Console.Error.WriteLine("       dotnet-release generate llms-index <input-dir> [output-dir] [--url-root <url>]");
@@ -669,9 +690,10 @@ static void PrintUsage()
     Console.Error.WriteLine("       dotnet-release verify <type> <version> [path-or-url]");
     Console.Error.WriteLine("       dotnet-release verify releases [version] [path] [--skip-hash]");
     Console.Error.WriteLine("       dotnet-release query distro-packages --dotnet-version <ver> [--output <file>]");
+    Console.Error.WriteLine("       dotnet-release skill");
     Console.Error.WriteLine();
-    Console.Error.WriteLine("Types: supported-os, os-packages, dotnet-dependencies, changes, releases-index,");
-    Console.Error.WriteLine("       releases, version-index, timeline-index, llms-index, indexes");
+    Console.Error.WriteLine("Types: supported-os, os-packages, dotnet-dependencies, changes, build-metadata,");
+    Console.Error.WriteLine("       releases-index, releases, version-index, timeline-index, llms-index, indexes");
     Console.Error.WriteLine();
     Console.Error.WriteLine("Changes options:");
     Console.Error.WriteLine("  --base <ref>       Base git ref (tag, branch, or commit)");
