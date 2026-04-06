@@ -13,7 +13,6 @@ using Dotnet.Release.Tools;
 //        release-notes-gen generate changes <repo-path> --base <ref> --head <ref> [--branch <branch>] [--version <ver>] [--date <date>] [--output <file>]
 //        release-notes-gen generate version-index|timeline-index|llms-index|indexes <input-dir> [output-dir] [--url-root <url>]
 //        release-notes-gen verify <type> <version> [path-or-url]
-//        release-notes-gen query changes-previews [repo-path]
 //        release-notes-gen query distro-packages --dotnet-version <ver> [--output <file>]
 // Types: supported-os, os-packages, changes
 
