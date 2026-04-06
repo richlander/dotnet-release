@@ -1,4 +1,4 @@
-# dotnet-release
+# release-notes-gen
 
 CLI tool for generating release metadata from .NET release data and the VMR (dotnet/dotnet).
 
@@ -25,7 +25,7 @@ CLI tool for generating release metadata from .NET release data and the VMR (dot
 Produces a structured JSON change log between two VMR refs, with per-repo commit/PR attribution, VMR commit mapping, and optional CVE cross-referencing.
 
 ```bash
-dotnet-release generate changes <repo-path> --base <ref> --head <ref> [options]
+release-notes-gen generate changes <repo-path> --base <ref> --head <ref> [options]
 ```
 
 Options:
@@ -43,12 +43,12 @@ Examples:
 
 ```bash
 # Changes between two preview tags
-dotnet-release generate changes ~/git/dotnet \
+release-notes-gen generate changes ~/git/dotnet \
   --base v11.0.0-preview.2.26159.112 \
   --head v11.0.0-preview.3.26179.102
 
 # Changes on main with CVE cross-referencing
-dotnet-release generate changes ~/git/dotnet \
+release-notes-gen generate changes ~/git/dotnet \
   --base v11.0.0-preview.2.26159.112 --head main \
   --branch main --cve-repo ~/git/core --output changes.json
 ```
@@ -58,7 +58,7 @@ dotnet-release generate changes ~/git/dotnet \
 Produces build metadata for API verification against nightly NuGet packages. Reads VMR version info and queries the nightly NuGet feed for latest package versions.
 
 ```bash
-dotnet-release generate build-metadata <repo-path> --base <ref> --head <ref> [--output <file>]
+release-notes-gen generate build-metadata <repo-path> --base <ref> --head <ref> [--output <file>]
 ```
 
 Output includes:
@@ -113,8 +113,8 @@ dnx dotnet-inspect -y -- find "*Zstandard*" \
 Generates markdown from .NET release JSON data for support matrices and dependency tables.
 
 ```bash
-dotnet-release generate <type> <version> [path-or-url] [--template <file>]
-dotnet-release generate <type> --export-template
+release-notes-gen generate <type> <version> [path-or-url] [--template <file>]
+release-notes-gen generate <type> --export-template
 ```
 
 ### generate releases / releases-index
@@ -122,8 +122,8 @@ dotnet-release generate <type> --export-template
 Generates release pages and index files from the dotnet/core release-notes tree.
 
 ```bash
-dotnet-release generate releases [path] [--template <file>]
-dotnet-release generate releases-index [path]
+release-notes-gen generate releases [path] [--template <file>]
+release-notes-gen generate releases-index [path]
 ```
 
 ### generate indexes
@@ -131,10 +131,10 @@ dotnet-release generate releases-index [path]
 Generates version, timeline, and LLMs index files.
 
 ```bash
-dotnet-release generate indexes <input-dir> [output-dir] [--url-root <url>]
-dotnet-release generate version-index <input-dir> [output-dir] [--url-root <url>]
-dotnet-release generate timeline-index <input-dir> [output-dir] [--url-root <url>]
-dotnet-release generate llms-index <input-dir> [output-dir] [--url-root <url>]
+release-notes-gen generate indexes <input-dir> [output-dir] [--url-root <url>]
+release-notes-gen generate version-index <input-dir> [output-dir] [--url-root <url>]
+release-notes-gen generate timeline-index <input-dir> [output-dir] [--url-root <url>]
+release-notes-gen generate llms-index <input-dir> [output-dir] [--url-root <url>]
 ```
 
 ### verify
@@ -142,8 +142,8 @@ dotnet-release generate llms-index <input-dir> [output-dir] [--url-root <url>]
 Validates generated release data against source JSON.
 
 ```bash
-dotnet-release verify <type> <version> [path-or-url]
-dotnet-release verify releases [version] [path] [--skip-hash]
+release-notes-gen verify <type> <version> [path-or-url]
+release-notes-gen verify releases [version] [path] [--skip-hash]
 ```
 
 ### query distro-packages
@@ -151,7 +151,7 @@ dotnet-release verify releases [version] [path] [--skip-hash]
 Queries distro package availability for a given .NET version.
 
 ```bash
-dotnet-release query distro-packages --dotnet-version <ver> [--output <file>]
+release-notes-gen query distro-packages --dotnet-version <ver> [--output <file>]
 ```
 
 Requires PKGS_ORG_TOKEN environment variable.
@@ -164,5 +164,5 @@ Requires PKGS_ORG_TOKEN environment variable.
 ## Installation
 
 ```bash
-dotnet tool install -g Dotnet.Release.Tools --prerelease
+dotnet tool install -g ReleaseNotes.Gen --prerelease
 ```

@@ -1,0 +1,520 @@
+using System.Globalization;
+using Dotnet.Release.Client;
+
+using var httpClient = new HttpClient();
+var graph = new ReleaseNotesGraph(httpClient);
+
+try
+{
+    if (args.Length == 0)
+    {
+        return await PrintOverviewAsync(graph);
+    }
+
+    var command = args[0].ToLowerInvariant();
+
+    if (command is "help" or "--help" or "-h")
+    {
+        PrintUsage();
+        return 0;
+    }
+
+    return command switch
+    {
+        "overview" => await PrintOverviewAsync(graph),
+        "releases" => await PrintReleasesAsync(graph, args),
+        "release" => await PrintReleaseAsync(graph, args),
+        "timeline" => await PrintTimelineAsync(graph, args),
+        "cves" => await PrintCvesAsync(graph, args),
+        _ => UnknownCommand(command)
+    };
+}
+catch (Exception ex)
+{
+    Console.Error.WriteLine($"Error: {ex.Message}");
+    return 1;
+}
+
+static int UnknownCommand(string commandName)
+{
+    Console.Error.WriteLine($"Unknown command: {commandName}");
+    Console.Error.WriteLine();
+    PrintUsage();
+    return 1;
+}
+
+static void PrintUsage()
+{
+    Console.Error.WriteLine("Usage: dotnet-release [command] [options]");
+    Console.Error.WriteLine();
+    Console.Error.WriteLine("Broad navigation:");
+    Console.Error.WriteLine("  dotnet-release                   Show a release-index overview");
+    Console.Error.WriteLine("  dotnet-release overview          Show latest supported releases and security status");
+    Console.Error.WriteLine("  dotnet-release releases [--all]  List major releases");
+    Console.Error.WriteLine("  dotnet-release release <ver>     Show recent patches for a major release");
+    Console.Error.WriteLine("  dotnet-release timeline [year]   Show the release timeline by year or month");
+    Console.Error.WriteLine();
+    Console.Error.WriteLine("Targeted query:");
+    Console.Error.WriteLine("  dotnet-release cves [-n <months>] [--product <name>] [--package <name>]");
+    Console.Error.WriteLine("  dotnet-release cves since <date> [--product <name>] [--package <name>]");
+    Console.Error.WriteLine("    <date> accepts YYYY, YYYY-MM, or YYYY-MM-DD");
+    Console.Error.WriteLine();
+    Console.Error.WriteLine("Notes:");
+    Console.Error.WriteLine("  This tool is currently pinned to the dotnet/core release-index branch.");
+}
+
+static async Task<int> PrintOverviewAsync(ReleaseNotesGraph graph)
+{
+    var llms = await graph.GetLlmsIndexAsync()
+        ?? throw new InvalidOperationException("Failed to load llms.json from the release-index branch.");
+
+    Console.WriteLine(".NET release graph overview");
+    Console.WriteLine($"Source: {ReleaseNotes.GitHubBaseUri}");
+    Console.WriteLine($"Latest major: {llms.LatestMajor ?? "n/a"}");
+    Console.WriteLine($"Latest LTS major: {llms.LatestLtsMajor ?? "n/a"}");
+    Console.WriteLine($"Latest patch date: {FormatDate(llms.LatestPatchDate)}");
+    Console.WriteLine($"Latest security patch date: {FormatDate(llms.LatestSecurityPatchDate)}");
+
+    if (llms.SupportedMajorReleases is { Count: > 0 } supported &&
+        llms.Embedded?.Patches is { Count: > 0 } patches)
+    {
+        Console.WriteLine();
+        Console.WriteLine("Supported releases:");
+
+        foreach (var version in supported)
+        {
+            if (!patches.TryGetValue(version, out var patch))
+            {
+                continue;
+            }
+
+            var security = patch.Security ? "security" : "regular";
+            Console.WriteLine(
+                $"  {version,-6} {DisplayReleaseType(patch.ReleaseType),-3} {DisplayPhase(patch.SupportPhase),-11} {patch.Version,-12} sdk {patch.SdkVersion,-8} {security}");
+        }
+    }
+
+    return 0;
+}
+
+static async Task<int> PrintReleasesAsync(ReleaseNotesGraph graph, string[] args)
+{
+    var showAll = args.Skip(1).Any(arg => string.Equals(arg, "--all", StringComparison.OrdinalIgnoreCase));
+    var summary = graph.GetReleasesSummary();
+    var releases = showAll
+        ? await summary.GetAllVersionsAsync()
+        : await summary.GetSupportedVersionsAsync();
+
+    Console.WriteLine(showAll ? "All .NET major releases" : "Supported .NET major releases");
+
+    foreach (var release in releases)
+    {
+        var security = release.HasSecurityFixes ? "security" : "regular";
+        var cveText = release.CveCount > 0 ? $" cves:{release.CveCount}" : string.Empty;
+
+        Console.WriteLine(
+            $"  {release.Version,-6} {DisplayReleaseType(release.ReleaseType),-3} {DisplayPhase(release.Phase),-11} sdk {(release.LatestSdkRelease ?? "-"),-8} {security}{cveText}");
+    }
+
+    return 0;
+}
+
+static async Task<int> PrintReleaseAsync(ReleaseNotesGraph graph, string[] args)
+{
+    if (args.Length < 2)
+    {
+        Console.Error.WriteLine("Usage: dotnet-release release <major-version>");
+        return 1;
+    }
+
+    var version = args[1];
+    var releases = graph.GetReleasesSummary();
+    var release = await releases.GetVersionAsync(version);
+
+    if (release is null)
+    {
+        Console.Error.WriteLine($"Version not found: {version}");
+        return 1;
+    }
+
+    var navigator = graph.GetReleaseNavigator(version);
+    var patches = (await navigator.GetAllPatchesAsync())
+        .OrderByDescending(p => p.ReleaseDate)
+        .ThenByDescending(p => p.Version, StringComparer.Ordinal)
+        .Take(8)
+        .ToList();
+
+    Console.WriteLine($".NET {version}");
+    Console.WriteLine($"Type: {DisplayReleaseType(release.ReleaseType)}");
+    Console.WriteLine($"Phase: {DisplayPhase(release.Phase)}");
+    Console.WriteLine($"Supported: {(release.IsSupported ? "yes" : "no")}");
+    Console.WriteLine($"GA date: {FormatDate(release.ReleaseDate)}");
+    Console.WriteLine($"EOL date: {FormatDate(release.EolDate)}");
+    Console.WriteLine($"Latest SDK: {release.LatestSdkRelease ?? "n/a"}");
+
+    if (patches.Count > 0)
+    {
+        Console.WriteLine();
+        Console.WriteLine("Recent patches:");
+
+        foreach (var patch in patches)
+        {
+            Console.WriteLine(
+                $"  {patch.Version,-12} {FormatDate(patch.ReleaseDate),-12} {(patch.IsSecurityUpdate ? "security" : "regular")}");
+        }
+    }
+
+    return 0;
+}
+
+static async Task<int> PrintTimelineAsync(ReleaseNotesGraph graph, string[] args)
+{
+    var archives = graph.GetArchivesSummary();
+
+    if (args.Length == 1)
+    {
+        var years = await archives.GetAllYearsAsync();
+        Console.WriteLine(".NET release timeline");
+
+        foreach (var year in years.OrderByDescending(y => y.Year, StringComparer.Ordinal))
+        {
+            var majors = year.MajorReleases is { Count: > 0 }
+                ? string.Join(", ", year.MajorReleases)
+                : "n/a";
+            Console.WriteLine($"  {year.Year}   majors: {majors}");
+        }
+
+        return 0;
+    }
+
+    var yearValue = args[1];
+    var yearSummary = await archives.GetYearAsync(yearValue);
+
+    if (yearSummary is null)
+    {
+        Console.Error.WriteLine($"Timeline year not found: {yearValue}");
+        return 1;
+    }
+
+    var navigator = graph.GetArchiveNavigator(yearValue);
+    var months = (await navigator.GetAllMonthsAsync())
+        .OrderByDescending(m => m.Month, StringComparer.Ordinal)
+        .ToList();
+
+    Console.WriteLine($".NET release timeline for {yearValue}");
+
+    foreach (var month in months)
+    {
+        var label = CultureInfo.InvariantCulture.DateTimeFormat.GetMonthName(int.Parse(month.Month, CultureInfo.InvariantCulture));
+        Console.WriteLine($"  {month.Month}  {label,-9} {(month.Security ? "security" : "regular")}");
+    }
+
+    return 0;
+}
+
+static async Task<int> PrintCvesAsync(ReleaseNotesGraph graph, string[] args)
+{
+    if (!TryParseCveQuery(args, out var options, out var error))
+    {
+        Console.Error.WriteLine(error);
+        Console.Error.WriteLine("Usage: dotnet-release cves [-n <months>] [--product <name>] [--package <name>]");
+        Console.Error.WriteLine("       dotnet-release cves since <date> [--product <name>] [--package <name>]");
+        Console.Error.WriteLine("       <date> accepts YYYY, YYYY-MM, or YYYY-MM-DD");
+        return 1;
+    }
+
+    var startDate = options.Since ?? DateTime.UtcNow.AddMonths(-(options.MonthsBack ?? 3));
+    var archives = graph.GetArchivesSummary();
+    var records = (await archives.GetCveRecordsInDateRangeAsync(
+            startDate.Year,
+            startDate.Month,
+            DateTime.UtcNow.Year,
+            DateTime.UtcNow.Month))
+        .OrderByDescending(GetRecordSortDate)
+        .ToList();
+
+    var filterSuffix = BuildFilterDescription(options);
+    var heading = options.Since is not null
+        ? $".NET CVEs since {startDate:yyyy-MM-dd}{filterSuffix}"
+        : $".NET CVEs in the last {options.MonthsBack ?? 3} month(s){filterSuffix}";
+
+    var anyMatches = false;
+    Console.WriteLine(heading);
+
+    foreach (var record in records)
+    {
+        var matches = record.Disclosures
+            .Where(disclosure => DisclosureMatches(record, disclosure, startDate, options))
+            .OrderByDescending(disclosure => disclosure.Timeline.Disclosure.Date)
+            .ToList();
+
+        if (matches.Count == 0)
+        {
+            continue;
+        }
+
+        anyMatches = true;
+
+        var maxScore = matches
+            .Select(disclosure => disclosure.Cvss.Score)
+            .DefaultIfEmpty(0m)
+            .Max();
+
+        Console.WriteLine();
+        Console.WriteLine($"{record.Title} ({matches.Count} CVEs, max CVSS {maxScore:0.0})");
+
+        foreach (var disclosure in matches)
+        {
+            Console.WriteLine(
+                $"  {disclosure.Id}  {disclosure.Timeline.Disclosure.Date:yyyy-MM-dd}  CVSS {disclosure.Cvss.Score:0.0} {disclosure.Cvss.Severity}  {disclosure.Problem}");
+
+            var matchedProducts = GetProductMatches(record, disclosure.Id, options.Product);
+            if (matchedProducts.Count > 0)
+            {
+                Console.WriteLine($"    products: {string.Join("; ", matchedProducts)}");
+            }
+
+            var matchedPackages = GetPackageMatches(record, disclosure.Id, options.Package);
+            if (matchedPackages.Count > 0)
+            {
+                Console.WriteLine($"    packages: {string.Join("; ", matchedPackages)}");
+            }
+        }
+    }
+
+    if (!anyMatches)
+    {
+        Console.WriteLine();
+        Console.WriteLine("No matching CVEs found.");
+    }
+
+    return 0;
+}
+
+static string BuildFilterDescription(CveQueryOptions options)
+{
+    var filters = new List<string>();
+
+    if (!string.IsNullOrWhiteSpace(options.Product))
+    {
+        filters.Add($"product contains \"{options.Product}\"");
+    }
+
+    if (!string.IsNullOrWhiteSpace(options.Package))
+    {
+        filters.Add($"package contains \"{options.Package}\"");
+    }
+
+    return filters.Count == 0 ? string.Empty : $" ({string.Join(", ", filters)})";
+}
+
+static bool DisclosureMatches(
+    Dotnet.Release.Cve.CveRecords record,
+    Dotnet.Release.Cve.Cve disclosure,
+    DateTime startDate,
+    CveQueryOptions options)
+{
+    var disclosureDate = disclosure.Timeline.Disclosure.Date.ToDateTime(TimeOnly.MinValue);
+    if (disclosureDate < startDate.Date)
+    {
+        return false;
+    }
+
+    if (!string.IsNullOrWhiteSpace(options.Product) &&
+        GetProductMatches(record, disclosure.Id, options.Product).Count == 0)
+    {
+        return false;
+    }
+
+    if (!string.IsNullOrWhiteSpace(options.Package) &&
+        GetPackageMatches(record, disclosure.Id, options.Package).Count == 0)
+    {
+        return false;
+    }
+
+    return true;
+}
+
+static List<string> GetProductMatches(Dotnet.Release.Cve.CveRecords record, string cveId, string? filter)
+    => record.Products
+        .Where(product => product.CveId == cveId && NameMatches(product.Name, filter))
+        .Select(product => $"{product.Name} {product.Release} -> fixed {product.Fixed}")
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+static List<string> GetPackageMatches(Dotnet.Release.Cve.CveRecords record, string cveId, string? filter)
+    => record.Packages
+        .Where(package => package.CveId == cveId && NameMatches(package.Name, filter))
+        .Select(package => $"{package.Name} {package.Release} -> fixed {package.Fixed}")
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+static bool NameMatches(string name, string? filter)
+    => string.IsNullOrWhiteSpace(filter) || name.Contains(filter, StringComparison.OrdinalIgnoreCase);
+
+static DateTime GetRecordSortDate(Dotnet.Release.Cve.CveRecords records)
+{
+    var disclosureDate = records.Disclosures
+        .Select(disclosure => disclosure.Timeline.Disclosure.Date.ToDateTime(TimeOnly.MinValue))
+        .DefaultIfEmpty(DateTime.MinValue)
+        .Max();
+
+    return disclosureDate;
+}
+
+static bool TryParseCveQuery(string[] args, out CveQueryOptions options, out string? error)
+{
+    DateTime? since = null;
+    int? monthsBack = null;
+    string? product = null;
+    string? package = null;
+
+    for (var i = 1; i < args.Length; i++)
+    {
+        var arg = args[i];
+
+        switch (arg)
+        {
+            case "recent":
+            case "last":
+                break;
+
+            case "since" when i + 1 < args.Length:
+                if (!TryParseSinceDate(args[++i], out var parsedDate))
+                {
+                    error = $"Could not parse date: {args[i]}";
+                    options = default;
+                    return false;
+                }
+
+                since = parsedDate;
+                break;
+
+            case "since":
+                error = "The since filter expects a date value.";
+                options = default;
+                return false;
+
+            case "-n":
+            case "--months":
+                if (i + 1 >= args.Length || !int.TryParse(args[++i], out var parsedMonths) || parsedMonths < 1)
+                {
+                    error = "The -n/--months option expects a positive integer.";
+                    options = default;
+                    return false;
+                }
+
+                monthsBack = parsedMonths;
+                break;
+
+            case "--product":
+            case "product":
+                if (i + 1 >= args.Length)
+                {
+                    error = "The product filter expects a value.";
+                    options = default;
+                    return false;
+                }
+
+                product = args[++i];
+                break;
+
+            case "--package":
+            case "package":
+                if (i + 1 >= args.Length)
+                {
+                    error = "The package filter expects a value.";
+                    options = default;
+                    return false;
+                }
+
+                package = args[++i];
+                break;
+
+            default:
+                if (int.TryParse(arg, out var positionalMonths) && positionalMonths > 0)
+                {
+                    monthsBack = positionalMonths;
+                    break;
+                }
+
+                error = $"Unrecognized cves argument: {arg}";
+                options = default;
+                return false;
+        }
+    }
+
+    if (since is not null && monthsBack is not null)
+    {
+        error = "Use either `since <date>` or `-n <months>`, not both.";
+        options = default;
+        return false;
+    }
+
+    options = new CveQueryOptions(since, monthsBack, product, package);
+    error = null;
+    return true;
+}
+
+static bool TryParseSinceDate(string value, out DateTime parsed)
+{
+    var formats = new[]
+    {
+        "yyyy",
+        "yyyy-MM-dd",
+        "yyyy/MM/dd",
+        "yyyy-MM",
+        "yyyy/MM",
+        "MMM yyyy",
+        "MMMM yyyy"
+    };
+
+    if (DateTime.TryParseExact(
+            value,
+            formats,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+            out parsed))
+    {
+        parsed = parsed.Date;
+        return true;
+    }
+
+    if (DateTime.TryParse(
+            value,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+            out parsed))
+    {
+        parsed = parsed.Date;
+        return true;
+    }
+
+    return false;
+}
+
+static string DisplayReleaseType(Dotnet.Release.ReleaseType? releaseType) => releaseType switch
+{
+    Dotnet.Release.ReleaseType.LTS => "LTS",
+    Dotnet.Release.ReleaseType.STS => "STS",
+    _ => "n/a"
+};
+
+static string DisplayPhase(Dotnet.Release.SupportPhase? phase) => phase switch
+{
+    Dotnet.Release.SupportPhase.Active => "active",
+    Dotnet.Release.SupportPhase.Preview => "preview",
+    Dotnet.Release.SupportPhase.Maintenance => "maintenance",
+    Dotnet.Release.SupportPhase.GoLive => "go-live",
+    Dotnet.Release.SupportPhase.Eol => "eol",
+    _ => "unknown"
+};
+
+static string FormatDate(DateTimeOffset? date)
+    => date?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "n/a";
+
+internal readonly record struct CveQueryOptions(
+    DateTime? Since,
+    int? MonthsBack,
+    string? Product,
+    string? Package);

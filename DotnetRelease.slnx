@@ -7,6 +7,7 @@
     <Project Path="src/Dotnet.Release.Changes/Dotnet.Release.Changes.csproj" />
     <Project Path="src/Dotnet.Release.Support/Dotnet.Release.Support.csproj" />
     <Project Path="src/Dotnet.Release.Client/Dotnet.Release.Client.csproj" />
+    <Project Path="src/Dotnet.Release.Tool/Dotnet.Release.Tool.csproj" />
     <Project Path="src/Dotnet.Release.Tools/Dotnet.Release.Tools.csproj" />
     <Project Path="src/Dotnet.Release.CveHandler/Dotnet.Release.CveHandler.csproj" />
     <Project Path="src/Dotnet.Release.CveEnricher/Dotnet.Release.CveEnricher.csproj" />

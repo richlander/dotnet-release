@@ -8,12 +8,12 @@ using Dotnet.Release.Summary;
 using Dotnet.Release.Support;
 using Dotnet.Release.Tools;
 
-// Usage: dotnet-release generate <type> <version> [path-or-url] [--template <file>]
-//        dotnet-release generate <type> --export-template
-//        dotnet-release generate changes <repo-path> --base <ref> --head <ref> [--branch <branch>] [--version <ver>] [--date <date>] [--output <file>]
-//        dotnet-release generate version-index|timeline-index|llms-index|indexes <input-dir> [output-dir] [--url-root <url>]
-//        dotnet-release verify <type> <version> [path-or-url]
-//        dotnet-release query distro-packages --dotnet-version <ver> [--output <file>]
+// Usage: release-notes-gen generate <type> <version> [path-or-url] [--template <file>]
+//        release-notes-gen generate <type> --export-template
+//        release-notes-gen generate changes <repo-path> --base <ref> --head <ref> [--branch <branch>] [--version <ver>] [--date <date>] [--output <file>]
+//        release-notes-gen generate version-index|timeline-index|llms-index|indexes <input-dir> [output-dir] [--url-root <url>]
+//        release-notes-gen verify <type> <version> [path-or-url]
+//        release-notes-gen query distro-packages --dotnet-version <ver> [--output <file>]
 // Types: supported-os, os-packages, changes
 
 if (args.Length >= 1 && args[0] == "skill")
@@ -75,13 +75,13 @@ if (args.Length > 2 && args[2] == "--export-template")
     return 0;
 }
 
-// Changes generator: dotnet-release generate changes <repo-path> --base <ref> --head <ref> ...
+// Changes generator: release-notes-gen generate changes <repo-path> --base <ref> --head <ref> ...
 if (type == "changes")
 {
     return await HandleGenerateChangesAsync(args);
 }
 
-// Build metadata generator: dotnet-release generate build-metadata <repo-path> --base <ref> --head <ref> [--output file]
+// Build metadata generator: release-notes-gen generate build-metadata <repo-path> --base <ref> --head <ref> [--output file]
 if (type == "build-metadata")
 {
     return await HandleGenerateBuildMetadataAsync(args);
@@ -524,7 +524,7 @@ async Task<int> VerifyReleasesAsync(string basePath, string? version, bool skipH
     Console.Error.WriteLine($"Verifying release links for {scope} in {Path.GetFullPath(basePath)}...");
 
     using var client = new HttpClient();
-    client.DefaultRequestHeaders.UserAgent.ParseAdd("dotnet-release-verifier/1.0");
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("release-notes-gen-verifier/1.0");
     client.Timeout = TimeSpan.FromMinutes(5);
 
     var report = await ReleasesVerifier.VerifyAsync(basePath, client, Console.Error, skipHash, version);
@@ -613,7 +613,7 @@ async Task<int> HandleGenerateChangesAsync(string[] args)
 
     using var httpClient = new HttpClient();
     httpClient.DefaultRequestHeaders.Add("Authorization", $"token {token}");
-    httpClient.DefaultRequestHeaders.Add("User-Agent", "dotnet-release-tool");
+    httpClient.DefaultRequestHeaders.Add("User-Agent", "release-notes-gen-tool");
 
     var generator = new ChangesGenerator(httpClient);
     var records = await generator.GenerateAsync(
@@ -677,20 +677,20 @@ static int PrintSkill()
 
 static void PrintUsage()
 {
-    Console.Error.WriteLine("Usage: dotnet-release generate <type> <version> [path-or-url] [--template <file>]");
-    Console.Error.WriteLine("       dotnet-release generate releases-index [path]");
-    Console.Error.WriteLine("       dotnet-release generate releases [path] [--template <file>]");
-    Console.Error.WriteLine("       dotnet-release generate changes <repo-path> --base <ref> --head <ref> [options]");
-    Console.Error.WriteLine("       dotnet-release generate build-metadata <repo-path> --base <ref> --head <ref> [--output <file>]");
-    Console.Error.WriteLine("       dotnet-release generate version-index <input-dir> [output-dir] [--url-root <url>]");
-    Console.Error.WriteLine("       dotnet-release generate timeline-index <input-dir> [output-dir] [--url-root <url>]");
-    Console.Error.WriteLine("       dotnet-release generate llms-index <input-dir> [output-dir] [--url-root <url>]");
-    Console.Error.WriteLine("       dotnet-release generate indexes <input-dir> [output-dir] [--url-root <url>]");
-    Console.Error.WriteLine("       dotnet-release generate <type> --export-template");
-    Console.Error.WriteLine("       dotnet-release verify <type> <version> [path-or-url]");
-    Console.Error.WriteLine("       dotnet-release verify releases [version] [path] [--skip-hash]");
-    Console.Error.WriteLine("       dotnet-release query distro-packages --dotnet-version <ver> [--output <file>]");
-    Console.Error.WriteLine("       dotnet-release skill");
+    Console.Error.WriteLine("Usage: release-notes-gen generate <type> <version> [path-or-url] [--template <file>]");
+    Console.Error.WriteLine("       release-notes-gen generate releases-index [path]");
+    Console.Error.WriteLine("       release-notes-gen generate releases [path] [--template <file>]");
+    Console.Error.WriteLine("       release-notes-gen generate changes <repo-path> --base <ref> --head <ref> [options]");
+    Console.Error.WriteLine("       release-notes-gen generate build-metadata <repo-path> --base <ref> --head <ref> [--output <file>]");
+    Console.Error.WriteLine("       release-notes-gen generate version-index <input-dir> [output-dir] [--url-root <url>]");
+    Console.Error.WriteLine("       release-notes-gen generate timeline-index <input-dir> [output-dir] [--url-root <url>]");
+    Console.Error.WriteLine("       release-notes-gen generate llms-index <input-dir> [output-dir] [--url-root <url>]");
+    Console.Error.WriteLine("       release-notes-gen generate indexes <input-dir> [output-dir] [--url-root <url>]");
+    Console.Error.WriteLine("       release-notes-gen generate <type> --export-template");
+    Console.Error.WriteLine("       release-notes-gen verify <type> <version> [path-or-url]");
+    Console.Error.WriteLine("       release-notes-gen verify releases [version] [path] [--skip-hash]");
+    Console.Error.WriteLine("       release-notes-gen query distro-packages --dotnet-version <ver> [--output <file>]");
+    Console.Error.WriteLine("       release-notes-gen skill");
     Console.Error.WriteLine();
     Console.Error.WriteLine("Types: supported-os, os-packages, dotnet-dependencies, changes, build-metadata,");
     Console.Error.WriteLine("       releases-index, releases, version-index, timeline-index, llms-index, indexes");
@@ -707,31 +707,31 @@ static void PrintUsage()
     Console.Error.WriteLine("  --output <file>    Write output to file instead of stdout");
     Console.Error.WriteLine();
     Console.Error.WriteLine("Examples:");
-    Console.Error.WriteLine("  dotnet-release generate supported-os 10.0");
-    Console.Error.WriteLine("  dotnet-release generate os-packages 10.0");
-    Console.Error.WriteLine("  dotnet-release generate dotnet-dependencies 11.0");
-    Console.Error.WriteLine("  dotnet-release generate dotnet-dependencies 11.0 ~/git/core/release-notes");
-    Console.Error.WriteLine("  dotnet-release generate supported-os 10.0 ~/git/core/release-notes");
-    Console.Error.WriteLine("  dotnet-release generate os-packages --export-template > my-template.md");
-    Console.Error.WriteLine("  dotnet-release generate releases-index ~/git/core/release-notes");
-    Console.Error.WriteLine("  dotnet-release generate releases ~/git/core/release-notes");
-    Console.Error.WriteLine("  dotnet-release generate releases --export-template > my-template.md");
-    Console.Error.WriteLine("  dotnet-release generate changes ~/git/dotnet --base v11.0.0-preview.1.25060.1 --head v11.0.0-preview.2.26159.112");
-    Console.Error.WriteLine("  dotnet-release generate changes ~/git/dotnet --base v11.0.0-preview.2.26159.112 --head main --branch main --output changes.json");
-    Console.Error.WriteLine("  dotnet-release generate version-index ~/git/core/release-notes");
-    Console.Error.WriteLine("  dotnet-release generate timeline-index ~/git/core/release-notes /tmp/output");
-    Console.Error.WriteLine("  dotnet-release generate llms-index ~/git/core/release-notes");
-    Console.Error.WriteLine("  dotnet-release generate indexes ~/git/core/release-notes --url-root https://raw.githubusercontent.com/dotnet/core/abc123");
-    Console.Error.WriteLine("  dotnet-release verify supported-os 10.0");
-    Console.Error.WriteLine("  dotnet-release verify supported-os 10.0 ~/git/core/release-notes");
-    Console.Error.WriteLine("  dotnet-release verify os-packages 10.0");
-    Console.Error.WriteLine("  dotnet-release verify os-packages 10.0 ~/git/core/release-notes");
-    Console.Error.WriteLine("  dotnet-release verify releases ~/git/core/release-notes");
-    Console.Error.WriteLine("  dotnet-release verify releases 10.0 ~/git/core/release-notes");
-    Console.Error.WriteLine("  dotnet-release verify releases 10.0.5 ~/git/core/release-notes");
-    Console.Error.WriteLine("  dotnet-release verify releases ~/git/core/release-notes --skip-hash");
-    Console.Error.WriteLine("  dotnet-release query distro-packages --dotnet-version 9.0");
-    Console.Error.WriteLine("  dotnet-release query distro-packages --dotnet-version 9.0 --output distro-packages.json");
+    Console.Error.WriteLine("  release-notes-gen generate supported-os 10.0");
+    Console.Error.WriteLine("  release-notes-gen generate os-packages 10.0");
+    Console.Error.WriteLine("  release-notes-gen generate dotnet-dependencies 11.0");
+    Console.Error.WriteLine("  release-notes-gen generate dotnet-dependencies 11.0 ~/git/core/release-notes");
+    Console.Error.WriteLine("  release-notes-gen generate supported-os 10.0 ~/git/core/release-notes");
+    Console.Error.WriteLine("  release-notes-gen generate os-packages --export-template > my-template.md");
+    Console.Error.WriteLine("  release-notes-gen generate releases-index ~/git/core/release-notes");
+    Console.Error.WriteLine("  release-notes-gen generate releases ~/git/core/release-notes");
+    Console.Error.WriteLine("  release-notes-gen generate releases --export-template > my-template.md");
+    Console.Error.WriteLine("  release-notes-gen generate changes ~/git/dotnet --base v11.0.0-preview.1.25060.1 --head v11.0.0-preview.2.26159.112");
+    Console.Error.WriteLine("  release-notes-gen generate changes ~/git/dotnet --base v11.0.0-preview.2.26159.112 --head main --branch main --output changes.json");
+    Console.Error.WriteLine("  release-notes-gen generate version-index ~/git/core/release-notes");
+    Console.Error.WriteLine("  release-notes-gen generate timeline-index ~/git/core/release-notes /tmp/output");
+    Console.Error.WriteLine("  release-notes-gen generate llms-index ~/git/core/release-notes");
+    Console.Error.WriteLine("  release-notes-gen generate indexes ~/git/core/release-notes --url-root https://raw.githubusercontent.com/dotnet/core/abc123");
+    Console.Error.WriteLine("  release-notes-gen verify supported-os 10.0");
+    Console.Error.WriteLine("  release-notes-gen verify supported-os 10.0 ~/git/core/release-notes");
+    Console.Error.WriteLine("  release-notes-gen verify os-packages 10.0");
+    Console.Error.WriteLine("  release-notes-gen verify os-packages 10.0 ~/git/core/release-notes");
+    Console.Error.WriteLine("  release-notes-gen verify releases ~/git/core/release-notes");
+    Console.Error.WriteLine("  release-notes-gen verify releases 10.0 ~/git/core/release-notes");
+    Console.Error.WriteLine("  release-notes-gen verify releases 10.0.5 ~/git/core/release-notes");
+    Console.Error.WriteLine("  release-notes-gen verify releases ~/git/core/release-notes --skip-hash");
+    Console.Error.WriteLine("  release-notes-gen query distro-packages --dotnet-version 9.0");
+    Console.Error.WriteLine("  release-notes-gen query distro-packages --dotnet-version 9.0 --output distro-packages.json");
     Console.Error.WriteLine();
     Console.Error.WriteLine("Environment variables:");
     Console.Error.WriteLine("  GITHUB_TOKEN    GitHub API token (required for generate changes)");
@@ -947,7 +947,7 @@ async Task<int> HandleGenerateBuildMetadataAsync(string[] args)
 
     if (repoPath is null || baseRef is null || headRef is null)
     {
-        Console.Error.WriteLine("Usage: dotnet-release generate build-metadata <repo-path> --base <ref> --head <ref> [--output file]");
+        Console.Error.WriteLine("Usage: release-notes-gen generate build-metadata <repo-path> --base <ref> --head <ref> [--output file]");
         return 1;
     }
 

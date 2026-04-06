@@ -1,6 +1,6 @@
 # dotnet-release
 
-.NET release data models for consuming [dotnet/core](https://github.com/dotnet/core) release notes JSON files.
+.NET release data models and tools for consuming [dotnet/core](https://github.com/dotnet/core) release notes JSON files and the HAL+JSON release graph.
 
 ## Packages
 
@@ -30,17 +30,47 @@ dotnet nuget add source https://nuget.pkg.github.com/richlander/index.json --nam
 Install tools globally:
 
 ```bash
-dotnet tool install -g Dotnet.Release.Tools
+dotnet tool install -g Dotnet.Release.Tool
+dotnet tool install -g ReleaseNotes.Gen
 ```
 
-### `dotnet-release generate`
+### `dotnet-release`
 
-Generates markdown files from .NET release JSON data.
+Query the public release graph on the `release-index` branch.
+
+| Command | Description |
+|---|---|
+| `dotnet-release` | Show a release overview from `llms.json` |
+| `dotnet-release releases [--all]` | List supported or all major releases |
+| `dotnet-release release <version>` | Show lifecycle and recent patches for a major release |
+| `dotnet-release timeline [year]` | Traverse the release timeline by year or month |
+| `dotnet-release cves [-n <months>]` | Show CVEs from the last `n` months |
+| `dotnet-release cves since <date>` | Show CVEs since a given date (`YYYY`, `YYYY-MM`, or `YYYY-MM-DD`) |
+| `dotnet-release cves --product <name>` | Filter CVEs by affected product |
+| `dotnet-release cves --package <name>` | Filter CVEs by affected package |
+
+Examples:
+
+```bash
+dotnet-release
+dotnet-release releases
+dotnet-release release 10.0
+dotnet-release timeline 2026
+dotnet-release cves -n 6
+dotnet-release cves since 2025
+dotnet-release cves since 2026-01
+dotnet-release cves --product runtime -n 12
+dotnet-release cves --package System.Security.Cryptography.Cose since 2026-01
+```
+
+### `release-notes-gen`
+
+Maintainer CLI for generating markdown and index files from .NET release data.
 
 | Subcommand | Description |
 |---|---|
-| `dotnet-release generate supported-os <version>` | Generates supported-os.md from supported-os.json |
-| `dotnet-release generate os-packages <version>` | Generates os-packages.md from os-packages.json |
+| `release-notes-gen generate supported-os <version>` | Generates supported-os.md from supported-os.json |
+| `release-notes-gen generate os-packages <version>` | Generates os-packages.md from os-packages.json |
 
 Options:
 
@@ -51,7 +81,7 @@ Options:
 Examples:
 
 ```bash
-dotnet-release generate supported-os 10.0
-dotnet-release generate os-packages 10.0 ~/git/core/release-notes
-dotnet-release generate supported-os --export-template > my-template.md
+release-notes-gen generate supported-os 10.0
+release-notes-gen generate os-packages 10.0 ~/git/core/release-notes
+release-notes-gen generate supported-os --export-template > my-template.md
 ```

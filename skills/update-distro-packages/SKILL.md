@@ -28,10 +28,10 @@ release-notes/11.0/distros/
 
 ## Prerequisites
 
-The `dotnet-release` tool must be installed globally. It provides the pkgs.org query client:
+The `release-notes-gen` tool must be installed globally. It provides the pkgs.org query client:
 
 ```bash
-dotnet-release query distro-packages --dotnet-version 11.0
+release-notes-gen query distro-packages --dotnet-version 11.0
 ```
 
 Requires `PKGS_ORG_TOKEN` environment variable (pkgs.org Gold+ subscription).
@@ -70,7 +70,7 @@ When a new distro release ships (e.g. Ubuntu 28.04):
 
 ### 3. Updating .NET package availability
 
-1. Run `dotnet-release query distro-packages --dotnet-version <ver>` to get current package data from pkgs.org
+1. Run `release-notes-gen query distro-packages --dotnet-version <ver>` to get current package data from pkgs.org
 2. For each distro file, update `dotnet_packages` (built-in feed) and `dotnet_packages_other` (alternative feeds)
 3. Update the root `dotnet_versions` array to reflect all available versions
 4. Dictionary keys: versions descending, feed names ascending, component names ascending

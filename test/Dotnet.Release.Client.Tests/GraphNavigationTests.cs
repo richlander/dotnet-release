@@ -11,6 +11,17 @@ public class GraphNavigationTests
     private ReleaseNotesGraph CreateGraph() => new(_client);
 
     [Fact]
+    public async Task GetLlmsIndex_ReturnsSupportedMajors()
+    {
+        var graph = CreateGraph();
+        var llms = await graph.GetLlmsIndexAsync();
+
+        Assert.NotNull(llms);
+        Assert.NotNull(llms.SupportedMajorReleases);
+        Assert.True(llms.SupportedMajorReleases.Count > 0);
+    }
+
+    [Fact]
     public async Task GetMajorReleaseIndex_ReturnsVersions()
     {
         var graph = CreateGraph();
