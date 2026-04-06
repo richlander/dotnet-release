@@ -5,6 +5,7 @@ CLI tool for generating release metadata from .NET release data and the VMR (dot
 ## Quick Decision Tree
 
 - **Writing release notes?** → `generate changes` to get the change log between two refs
+- **Not sure which preview train is active?** → `query changes-previews` first
 - **Verifying APIs against nightly builds?** → `generate build-metadata` for feed URLs and package versions
 - **Updating support matrices?** → `generate supported-os` / `generate os-packages`
 - **Regenerating release pages?** → `generate releases` / `generate releases-index`
@@ -51,6 +52,18 @@ release-notes-gen generate changes ~/git/dotnet \
 release-notes-gen generate changes ~/git/dotnet \
   --base v11.0.0-preview.2.26159.112 --head main \
   --branch main --cve-repo ~/git/core --output changes.json
+```
+
+### query changes-previews
+
+Lists the preview release versions currently visible in a dotnet/dotnet clone, one per line, along with the head ref an agent can feed into `generate changes`.
+
+```bash
+release-notes-gen query changes-previews ~/git/dotnet
+
+# Example output
+11.0.0-preview.3  head=origin/release/11.0.1xx-preview3
+11.0.0-preview.4  head=main
 ```
 
 ### generate build-metadata

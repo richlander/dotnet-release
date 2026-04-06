@@ -13,6 +13,7 @@ using Dotnet.Release.Tools;
 //        release-notes-gen generate changes <repo-path> --base <ref> --head <ref> [--branch <branch>] [--version <ver>] [--date <date>] [--output <file>]
 //        release-notes-gen generate version-index|timeline-index|llms-index|indexes <input-dir> [output-dir] [--url-root <url>]
 //        release-notes-gen verify <type> <version> [path-or-url]
+//        release-notes-gen query changes-previews [repo-path]
 //        release-notes-gen query distro-packages --dotnet-version <ver> [--output <file>]
 // Types: supported-os, os-packages, changes
 
@@ -689,6 +690,7 @@ static void PrintUsage()
     Console.Error.WriteLine("       release-notes-gen generate <type> --export-template");
     Console.Error.WriteLine("       release-notes-gen verify <type> <version> [path-or-url]");
     Console.Error.WriteLine("       release-notes-gen verify releases [version] [path] [--skip-hash]");
+    Console.Error.WriteLine("       release-notes-gen query changes-previews [repo-path]");
     Console.Error.WriteLine("       release-notes-gen query distro-packages --dotnet-version <ver> [--output <file>]");
     Console.Error.WriteLine("       release-notes-gen skill");
     Console.Error.WriteLine();
@@ -730,6 +732,7 @@ static void PrintUsage()
     Console.Error.WriteLine("  release-notes-gen verify releases 10.0 ~/git/core/release-notes");
     Console.Error.WriteLine("  release-notes-gen verify releases 10.0.5 ~/git/core/release-notes");
     Console.Error.WriteLine("  release-notes-gen verify releases ~/git/core/release-notes --skip-hash");
+    Console.Error.WriteLine("  release-notes-gen query changes-previews ~/git/dotnet");
     Console.Error.WriteLine("  release-notes-gen query distro-packages --dotnet-version 9.0");
     Console.Error.WriteLine("  release-notes-gen query distro-packages --dotnet-version 9.0 --output distro-packages.json");
     Console.Error.WriteLine();
@@ -862,6 +865,25 @@ async Task<int> HandleQueryAsync(string[] args)
     }
 
     string queryType = args[1];
+
+    if (queryType == "changes-previews")
+    {
+        string repoPath = args.Length > 2 && !args[2].StartsWith('-') ? args[2] : ".";
+        var previews = await ChangesPreviewQuery.FindAsync(repoPath);
+
+        if (previews.Count == 0)
+        {
+            Console.Error.WriteLine($"No preview refs found in {Path.GetFullPath(repoPath)}.");
+            return 0;
+        }
+
+        foreach (var preview in previews)
+        {
+            Console.Out.WriteLine($"{preview.ReleaseVersion}\thead={preview.HeadRef}");
+        }
+
+        return 0;
+    }
 
     if (queryType != "distro-packages")
     {
