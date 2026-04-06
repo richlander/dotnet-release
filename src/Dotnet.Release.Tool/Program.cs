@@ -30,6 +30,7 @@ try
         "overview" => await PrintOverviewAsync(graph),
         "releases" => await PrintReleasesAsync(graph, args),
         "release" => await PrintReleaseAsync(graph, args),
+        "downloads" => await PrintDownloadsAsync(graph, args),
         "timeline" => await PrintTimelineAsync(graph, args),
         "cves" => await PrintCvesAsync(graph, args),
         _ => UnknownCommand(command)
@@ -58,6 +59,7 @@ static void PrintUsage()
     Console.Error.WriteLine("  dotnet-release overview          Show latest supported releases and security status");
     Console.Error.WriteLine("  dotnet-release releases [--all]  List major releases");
     Console.Error.WriteLine("  dotnet-release release <ver>     Show recent patches for a major release");
+    Console.Error.WriteLine("  dotnet-release downloads <ver> [component|band] [--rid <rid>]");
     Console.Error.WriteLine("  dotnet-release timeline [period] Show the release timeline by year, month, or day");
     Console.Error.WriteLine("  dotnet-release skill             Print agent guidance for release graph questions");
     Console.Error.WriteLine();
@@ -138,6 +140,7 @@ static async Task<int> PrintReleaseAsync(ReleaseNotesGraph graph, string[] args)
     var version = args[1];
     var releases = graph.GetReleasesSummary();
     var release = await releases.GetVersionAsync(version);
+    var manifest = await graph.GetManifestAsync(version);
 
     if (release is null)
     {
@@ -146,19 +149,29 @@ static async Task<int> PrintReleaseAsync(ReleaseNotesGraph graph, string[] args)
     }
 
     var navigator = graph.GetReleaseNavigator(version);
+    var majorIndex = await graph.GetPatchReleaseIndexAsync(version)
+        ?? throw new InvalidOperationException($"Failed to load release index for {version}.");
     var patches = (await navigator.GetAllPatchesAsync())
         .OrderByDescending(p => p.ReleaseDate)
         .ThenByDescending(p => p.Version, StringComparer.Ordinal)
         .Take(8)
         .ToList();
+    var latestSdk = release.LatestSdkRelease
+        ?? majorIndex.Embedded?.Patches?
+            .OrderByDescending(p => p.Date)
+            .ThenByDescending(p => p.Version, StringComparer.Ordinal)
+            .Select(p => p.SdkVersion)
+            .FirstOrDefault(version => !string.IsNullOrWhiteSpace(version));
 
     Console.WriteLine($".NET {version}");
-    Console.WriteLine($"Type: {DisplayReleaseType(release.ReleaseType)}");
-    Console.WriteLine($"Phase: {DisplayPhase(release.Phase)}");
-    Console.WriteLine($"Supported: {(release.IsSupported ? "yes" : "no")}");
-    Console.WriteLine($"GA date: {FormatDate(release.ReleaseDate)}");
-    Console.WriteLine($"EOL date: {FormatDate(release.EolDate)}");
-    Console.WriteLine($"Latest SDK: {release.LatestSdkRelease ?? "n/a"}");
+    Console.WriteLine($"Type: {DisplayReleaseType(manifest?.ReleaseType ?? release.ReleaseType)}");
+    Console.WriteLine($"Phase: {DisplayPhase(manifest?.SupportPhase ?? release.Phase)}");
+    Console.WriteLine($"Supported: {(manifest?.Supported ?? release.IsSupported ? "yes" : "no")}");
+    Console.WriteLine($"Target framework: {manifest?.TargetFramework ?? "n/a"}");
+    Console.WriteLine($"GA date: {FormatDate(manifest?.GaDate ?? release.ReleaseDate)}");
+    Console.WriteLine($"EOL date: {FormatDate(manifest?.EolDate ?? release.EolDate)}");
+    Console.WriteLine($"Latest SDK: {latestSdk ?? "n/a"}");
+    Console.WriteLine($"Downloads: {(majorIndex.Links.ContainsKey(LinkRelations.Downloads) ? "available" : "not exposed in graph")}");
 
     if (patches.Count > 0)
     {
@@ -174,6 +187,268 @@ static async Task<int> PrintReleaseAsync(ReleaseNotesGraph graph, string[] args)
 
     return 0;
 }
+
+static async Task<int> PrintDownloadsAsync(ReleaseNotesGraph graph, string[] args)
+{
+    if (args.Length < 2)
+    {
+        Console.Error.WriteLine("Usage: dotnet-release downloads <major-version> [component|band] [--rid <rid>]");
+        return 1;
+    }
+
+    var version = args[1];
+    string? selector = null;
+    string? rid = null;
+
+    for (var i = 2; i < args.Length; i++)
+    {
+        switch (args[i])
+        {
+            case "--rid":
+                if (i + 1 >= args.Length)
+                {
+                    Console.Error.WriteLine("The --rid option expects a value.");
+                    return 1;
+                }
+
+                rid = args[++i];
+                break;
+
+            default:
+                if (selector is not null)
+                {
+                    Console.Error.WriteLine($"Unexpected downloads argument: {args[i]}");
+                    return 1;
+                }
+
+                selector = args[i];
+                break;
+        }
+    }
+
+    var majorIndex = await graph.GetPatchReleaseIndexAsync(version);
+    if (majorIndex is null)
+    {
+        Console.Error.WriteLine($"Version not found: {version}");
+        return 1;
+    }
+
+    if (!majorIndex.Links.TryGetValue(LinkRelations.Downloads, out var downloadsLink))
+    {
+        Console.WriteLine($".NET {version} downloads");
+        Console.WriteLine("Downloads available: no");
+        Console.WriteLine("This major version does not currently expose the downloads subtree in the release graph.");
+        return 0;
+    }
+
+    var downloadsIndex = await graph.FollowLinkAsync<DownloadsIndex>(downloadsLink)
+        ?? throw new InvalidOperationException($"Failed to load downloads index for {version}.");
+
+    if (string.IsNullOrWhiteSpace(selector))
+    {
+        return await PrintDownloadsIndexAsync(graph, downloadsIndex);
+    }
+
+    return await PrintDownloadDetailsAsync(graph, downloadsIndex, selector, rid);
+}
+
+static async Task<int> PrintDownloadsIndexAsync(ReleaseNotesGraph graph, DownloadsIndex downloadsIndex)
+{
+    Console.WriteLine($".NET {downloadsIndex.Version} downloads");
+    Console.WriteLine("Downloads available: yes");
+
+    if (downloadsIndex.Embedded?.Components is { Count: > 0 } components)
+    {
+        Console.WriteLine();
+        Console.WriteLine("Components:");
+
+        foreach (var component in components)
+        {
+            var countText = await GetComponentDownloadCountTextAsync(graph, component);
+            Console.WriteLine($"  {component.Name,-14} {countText,-13} {component.Title}");
+        }
+    }
+
+    if (downloadsIndex.Embedded?.FeatureBands is { Count: > 0 } bands)
+    {
+        Console.WriteLine();
+        Console.WriteLine("SDK feature bands:");
+
+        foreach (var band in bands)
+        {
+            var countText = await GetFeatureBandDownloadCountTextAsync(graph, band);
+            Console.WriteLine($"  {band.Version,-10} {DisplayPhase(band.SupportPhase),-11} {countText,-13} {band.Title}");
+        }
+    }
+
+    Console.WriteLine();
+    Console.WriteLine($"Try `dotnet-release downloads {downloadsIndex.Version} runtime --rid linux-x64` for a specific asset.");
+    return 0;
+}
+
+static async Task<string> GetComponentDownloadCountTextAsync(ReleaseNotesGraph graph, ComponentEntry component)
+{
+    if (component.Links is null || !component.Links.TryGetValue(HalTerms.Self, out var selfLink))
+    {
+        return "n/a";
+    }
+
+    var details = await graph.FollowLinkAsync<ComponentDownload>(selfLink);
+    return details?.Embedded?.Downloads.Count is int count ? $"{count} entries" : "n/a";
+}
+
+static async Task<string> GetFeatureBandDownloadCountTextAsync(ReleaseNotesGraph graph, FeatureBandEntry band)
+{
+    if (band.Links is null || !band.Links.TryGetValue(HalTerms.Self, out var selfLink))
+    {
+        return "n/a";
+    }
+
+    var details = await graph.FollowLinkAsync<SdkDownloadInfo>(selfLink);
+    return details?.Embedded?.Downloads.Count is int count ? $"{count} entries" : "n/a";
+}
+
+static async Task<int> PrintDownloadDetailsAsync(
+    ReleaseNotesGraph graph,
+    DownloadsIndex downloadsIndex,
+    string selector,
+    string? rid)
+{
+    var normalizedSelector = selector.StartsWith("sdk-", StringComparison.OrdinalIgnoreCase)
+        ? selector["sdk-".Length..]
+        : selector;
+
+    var component = downloadsIndex.Embedded?.Components?.FirstOrDefault(entry =>
+        string.Equals(entry.Name, selector, StringComparison.OrdinalIgnoreCase));
+
+    if (component is not null)
+    {
+        var selfLink = component.Links is not null && component.Links.TryGetValue(HalTerms.Self, out var link)
+            ? link
+            : null;
+
+        if (selfLink is null)
+        {
+            Console.Error.WriteLine($"Downloads entry is missing a self link for component {component.Name}.");
+            return 1;
+        }
+
+        var details = await graph.FollowLinkAsync<ComponentDownload>(selfLink)
+            ?? throw new InvalidOperationException($"Failed to load downloads for {component.Name}.");
+
+        return PrintComponentDownload(details, rid);
+    }
+
+    var band = downloadsIndex.Embedded?.FeatureBands?.FirstOrDefault(entry =>
+        string.Equals(entry.Version, normalizedSelector, StringComparison.OrdinalIgnoreCase));
+
+    if (band is not null)
+    {
+        var selfLink = band.Links is not null && band.Links.TryGetValue(HalTerms.Self, out var link)
+            ? link
+            : null;
+
+        if (selfLink is null)
+        {
+            Console.Error.WriteLine($"Downloads entry is missing a self link for SDK feature band {band.Version}.");
+            return 1;
+        }
+
+        var details = await graph.FollowLinkAsync<SdkDownloadInfo>(selfLink)
+            ?? throw new InvalidOperationException($"Failed to load downloads for SDK feature band {band.Version}.");
+
+        return PrintSdkDownload(details, rid);
+    }
+
+    Console.Error.WriteLine($"Unknown downloads target: {selector}");
+    Console.Error.WriteLine($"Use `dotnet-release downloads {downloadsIndex.Version}` to list available components and feature bands.");
+    return 1;
+}
+
+static int PrintComponentDownload(ComponentDownload details, string? rid)
+{
+    Console.WriteLine($".NET {details.Version} {details.Component} downloads");
+    Console.WriteLine("Downloads available: yes");
+    if (!string.IsNullOrWhiteSpace(details.Description))
+    {
+        Console.WriteLine(details.Description);
+    }
+
+    var entries = (details.Embedded?.Downloads ?? [])
+        .Select(pair => new DownloadEntryView(
+            pair.Key,
+            pair.Value.Name,
+            pair.Value.Rid,
+            pair.Value.Os,
+            pair.Value.Arch,
+            pair.Value.HashAlgorithm,
+            GetHref(pair.Value.Links, "download"),
+            GetHref(pair.Value.Links, "hash")))
+        .ToList();
+
+    return PrintDownloadEntries(entries, rid);
+}
+
+static int PrintSdkDownload(SdkDownloadInfo details, string? rid)
+{
+    Console.WriteLine($".NET SDK {details.Version} downloads");
+    Console.WriteLine("Downloads available: yes");
+    Console.WriteLine($"Phase: {DisplayPhase(details.SupportPhase)}");
+    if (!string.IsNullOrWhiteSpace(details.Description))
+    {
+        Console.WriteLine(details.Description);
+    }
+
+    var entries = (details.Embedded?.Downloads ?? [])
+        .Select(pair => new DownloadEntryView(
+            pair.Key,
+            pair.Value.Name,
+            pair.Value.Rid,
+            pair.Value.Os,
+            pair.Value.Arch,
+            pair.Value.HashAlgorithm,
+            GetHref(pair.Value.Links, "download"),
+            GetHref(pair.Value.Links, "hash")))
+        .ToList();
+
+    return PrintDownloadEntries(entries, rid);
+}
+
+static int PrintDownloadEntries(IReadOnlyList<DownloadEntryView> entries, string? rid)
+{
+    var filtered = string.IsNullOrWhiteSpace(rid)
+        ? entries.OrderBy(entry => entry.Rid, StringComparer.Ordinal).ToList()
+        : entries
+            .Where(entry => string.Equals(entry.Rid, rid, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(entry => entry.Rid, StringComparer.Ordinal)
+            .ToList();
+
+    if (filtered.Count == 0)
+    {
+        Console.WriteLine();
+        Console.WriteLine(string.IsNullOrWhiteSpace(rid)
+            ? "No download entries found."
+            : $"No download entry found for RID {rid}.");
+        return string.IsNullOrWhiteSpace(rid) ? 0 : 1;
+    }
+
+    Console.WriteLine();
+    Console.WriteLine($"Entries: {filtered.Count}");
+
+    foreach (var entry in filtered)
+    {
+        Console.WriteLine();
+        Console.WriteLine($"  {entry.Rid,-18} {entry.Name}");
+        Console.WriteLine($"    platform: {entry.Os}/{entry.Arch}");
+        Console.WriteLine($"    download: {entry.DownloadUrl ?? "n/a"}");
+        Console.WriteLine($"    hash ({entry.HashAlgorithm}): {entry.HashUrl ?? "n/a"}");
+    }
+
+    return 0;
+}
+
+static string? GetHref(IReadOnlyDictionary<string, HalLink>? links, string relation)
+    => links is not null && links.TryGetValue(relation, out var link) ? link.Href : null;
 
 static async Task<int> PrintTimelineAsync(ReleaseNotesGraph graph, string[] args)
 {
@@ -799,3 +1074,13 @@ internal readonly record struct TimelineTarget(
     public string DisplayValue => Day?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
         ?? (Month is null ? Year : $"{Year}-{Month}");
 }
+
+internal readonly record struct DownloadEntryView(
+    string Key,
+    string Name,
+    string Rid,
+    string Os,
+    string Arch,
+    string HashAlgorithm,
+    string? DownloadUrl,
+    string? HashUrl);

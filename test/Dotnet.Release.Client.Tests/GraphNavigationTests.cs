@@ -110,5 +110,15 @@ public class GraphNavigationTests
         Assert.Equal("runtime", component.Component);
         Assert.NotNull(component.Embedded?.Downloads);
         Assert.True(component.Embedded.Downloads.Count > 0);
+
+        Assert.NotNull(downloads.Embedded.FeatureBands);
+        var band = downloads.Embedded.FeatureBands.First();
+        Assert.NotNull(band.Links);
+        Assert.True(band.Links!.TryGetValue(HalTerms.Self, out var bandLink));
+
+        var sdkDownloads = await graph.FollowLinkAsync<SdkDownloadInfo>(bandLink!);
+        Assert.NotNull(sdkDownloads);
+        Assert.NotNull(sdkDownloads.Embedded?.Downloads);
+        Assert.True(sdkDownloads.Embedded.Downloads.Count > 0);
     }
 }

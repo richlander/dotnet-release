@@ -5,7 +5,7 @@ description: Answer .NET release lifecycle, timeline, patch, and CVE questions b
 
 # dotnet-releases
 
-Use this skill when a user asks about .NET release status, support lifecycle, what shipped in a given month or day, or which CVEs affected a product or package.
+Use this skill when a user asks about .NET release status, support lifecycle, what shipped in a given month or day, which CVEs affected a product or package, or whether download assets are available for a release.
 
 ## When to use
 
@@ -15,6 +15,8 @@ Use this skill when a user asks about .NET release status, support lifecycle, wh
 - "Which CVEs affected the runtime since 2025?"
 - "Which package was fixed for a recent .NET security update?"
 - "What is the latest LTS or latest security patch?"
+- "Are downloads available for .NET 6.0?"
+- "What is the linux-x64 runtime download for .NET 10?"
 
 ## Tool to use
 
@@ -64,10 +66,18 @@ Start broad, then drill down:
    dotnet-release cves --package System.Security.Cryptography.Cose since 2026-01
    ```
 
+5. **Downloads subtree**
+   ```bash
+   dotnet-release downloads 10.0
+   dotnet-release downloads 10.0 runtime --rid linux-x64
+   dotnet-release downloads 10.0 10.0.xx --rid linux-x64
+   ```
+
 ## Answering guidance
 
 - Prefer the tool over hand-reading raw JSON when the question fits the CLI surface.
 - Use **timeline** for date-based questions and **cves** for security questions.
+- Use **downloads** when the user wants install assets or needs to know whether the graph exposes downloads for a major release.
 - Summarize the result in natural language with exact dates and versions.
 - Avoid dumping raw command output unless the user asks for it.
 - If a question needs package or product scoping, add `--package` or `--product` instead of manually filtering.

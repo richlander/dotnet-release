@@ -43,6 +43,7 @@ Query the public release graph on the `release-index` branch.
 | `dotnet-release` | Show a release overview from `llms.json` |
 | `dotnet-release releases [--all]` | List supported or all major releases |
 | `dotnet-release release <version>` | Show lifecycle and recent patches for a major release |
+| `dotnet-release downloads <version> [component\|band] [--rid <rid>]` | Traverse the downloads subtree and show whether downloads are available |
 | `dotnet-release timeline [period]` | Traverse the release timeline by year, month, or exact day |
 | `dotnet-release skill` | Print agent guidance for answering release-graph questions |
 | `dotnet-release cves [-n <months>]` | Show CVEs from the last `n` months |
@@ -56,6 +57,8 @@ Examples:
 dotnet-release
 dotnet-release releases
 dotnet-release release 10.0
+dotnet-release downloads 10.0
+dotnet-release downloads 10.0 runtime --rid linux-x64
 dotnet-release timeline 2026
 dotnet-release timeline 2026-03
 dotnet-release timeline 2026-03-10
