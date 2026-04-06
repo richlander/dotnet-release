@@ -11,7 +11,7 @@ public static class ReleaseNotes
     public const string OfficialBaseUri = "https://builds.dotnet.microsoft.com/dotnet/release-metadata/";
 
     /// <summary>
-    /// GitHub raw content base URI for release notes (release-index branch).
+    /// GitHub raw content base URI for release notes, pinned to the release-index branch.
     /// </summary>
-    public const string GitHubBaseUri = "https://raw.githubusercontent.com/dotnet/core/release-index/release-notes/";
+    public const string GitHubBaseUri = "https://raw.githubusercontent.com/dotnet/core/refs/heads/release-index/release-notes/";
 }

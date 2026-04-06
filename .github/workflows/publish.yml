@@ -10,6 +10,7 @@ on:
 env:
   NUGET_SOURCE: https://nuget.pkg.github.com/richlander/index.json
   TOOL_PROJECTS: >-
+    src/Dotnet.Release.Tool/Dotnet.Release.Tool.csproj
     src/Dotnet.Release.Tools/Dotnet.Release.Tools.csproj
     src/Dotnet.Release.CveEnricher/Dotnet.Release.CveEnricher.csproj
 

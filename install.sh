@@ -1,33 +1,45 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Packs and installs dotnet-release as a global tool from local source.
+# Packs and installs the public and maintainer release tools from local source.
 # Usage: ./install.sh
 
 REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
-TOOL_PROJECT="$REPO_ROOT/src/Dotnet.Release.Tools/Dotnet.Release.Tools.csproj"
-PACKAGE_ID="Dotnet.Release.Tools"
 NUPKG_DIR="$REPO_ROOT/artifacts/package/release"
+TOOLS=(
+    "$REPO_ROOT/src/Dotnet.Release.Tool/Dotnet.Release.Tool.csproj|Dotnet.Release.Tool|dotnet-release"
+    "$REPO_ROOT/src/Dotnet.Release.Tools/Dotnet.Release.Tools.csproj|ReleaseNotes.Gen|release-notes-gen"
+)
 
-echo "=== Installing dotnet-release from source ==="
+echo "=== Installing release tools from source ==="
 
 # Uninstall if already installed
-if dotnet tool list -g | grep -q "$PACKAGE_ID"; then
-    echo "Uninstalling existing dotnet-release..."
-    dotnet tool uninstall -g "$PACKAGE_ID"
-fi
+for tool in "${TOOLS[@]}"; do
+    IFS='|' read -r _ package_id command_name <<< "$tool"
+    if dotnet tool list -g | grep -q "$package_id"; then
+        echo "Uninstalling existing $command_name..."
+        dotnet tool uninstall -g "$package_id"
+    fi
+done
 
 # Clean previous packages
 rm -rf "$NUPKG_DIR"
 
 # Pack
 echo "Packing..."
-dotnet pack "$TOOL_PROJECT" -o "$NUPKG_DIR" -p:OfficialBuild=true
-dotnet pack "$TOOL_PROJECT" -o "$NUPKG_DIR" -p:OfficialAotBuild=true
+for tool in "${TOOLS[@]}"; do
+    IFS='|' read -r tool_project _ _ <<< "$tool"
+    dotnet pack "$tool_project" -o "$NUPKG_DIR" -p:OfficialBuild=true
+    dotnet pack "$tool_project" -o "$NUPKG_DIR" -p:OfficialAotBuild=true
+done
 
 # Install from local packages
 echo "Installing..."
-dotnet tool install -g "$PACKAGE_ID" --add-source "$NUPKG_DIR" --prerelease
+for tool in "${TOOLS[@]}"; do
+    IFS='|' read -r _ package_id command_name <<< "$tool"
+    dotnet tool install -g "$package_id" --add-source "$NUPKG_DIR" --prerelease
+    echo "Installed $command_name"
+done
 
 echo ""
-echo "Done. Run 'dotnet-release --help' to verify."
+echo "Done. Run 'dotnet-release' and 'release-notes-gen --help' to verify."

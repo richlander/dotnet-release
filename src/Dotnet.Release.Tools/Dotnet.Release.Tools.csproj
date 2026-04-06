@@ -3,10 +3,10 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <PackAsTool>true</PackAsTool>
-    <ToolCommandName>dotnet-release</ToolCommandName>
+    <ToolCommandName>release-notes-gen</ToolCommandName>
     <VersionPrefix>2.3.0</VersionPrefix>
-    <PackageId>Dotnet.Release.Tools</PackageId>
-    <Description>CLI tools for generating markdown from .NET release data</Description>
+    <PackageId>ReleaseNotes.Gen</PackageId>
+    <Description>Maintainer CLI for generating and verifying .NET release notes data</Description>
     <!-- Size optimizations for Native AOT -->
     <UseSystemResourceKeys>true</UseSystemResourceKeys>
     <InvariantGlobalization>true</InvariantGlobalization>

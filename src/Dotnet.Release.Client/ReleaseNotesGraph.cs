@@ -32,6 +32,12 @@ public class ReleaseNotesGraph
     }
 
     /// <summary>
+    /// Gets the AI-optimized root index with latest release and security summaries.
+    /// </summary>
+    public Task<LlmsIndex?> GetLlmsIndexAsync(CancellationToken cancellationToken = default)
+        => _linkFollower.FetchAsync<LlmsIndex>($"{_baseUrl}llms.json", cancellationToken);
+
+    /// <summary>
     /// Gets the root major release version index containing all .NET versions.
     /// </summary>
     public Task<MajorReleaseVersionIndex?> GetMajorReleaseIndexAsync(CancellationToken cancellationToken = default)

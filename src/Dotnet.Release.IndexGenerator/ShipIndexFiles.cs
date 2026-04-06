@@ -356,6 +356,7 @@ public class ShipIndexFiles
                         patchCveIds?.Count > 0,
                         phase)
                     {
+                        MajorRelease = majorVersion,
                         SdkVersion = sdkVersions?.FirstOrDefault(),
                         Links = HalHelpers.OrderLinks(patchLinks)
                     };

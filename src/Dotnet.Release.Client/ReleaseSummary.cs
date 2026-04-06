@@ -21,10 +21,14 @@ public class ReleaseSummary
     public DateTimeOffset? ReleaseDate => _entry.GaDate;
     public DateTimeOffset? EolDate => _entry.EolDate;
     public bool IsSupported => _entry.Supported ?? false;
+    public bool HasSecurityFixes => _entry.Security ?? false;
     public bool IsLts => ReleaseType == Release.ReleaseType.LTS;
     public bool IsSts => ReleaseType == Release.ReleaseType.STS;
     public bool IsActive => Phase == SupportPhase.Active;
     public bool IsPreview => Phase == SupportPhase.Preview;
     public bool IsEol => Phase == SupportPhase.Eol;
+    public int CveCount => _entry.CveCount ?? 0;
+    public string? LatestSdkRelease => _entry.SdkRelease;
+    public IReadOnlyList<string>? RuntimePatches => _entry.RuntimePatches?.ToList();
     public IReadOnlyDictionary<string, HalLink>? Links => _entry.Links;
 }

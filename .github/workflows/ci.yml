@@ -114,23 +114,28 @@ jobs:
 
       - name: Pack pointer package
         run: |
+          dotnet pack src/Dotnet.Release.Tool -c Release -p:OfficialBuild=true
           dotnet pack src/Dotnet.Release.Tools -c Release -p:OfficialBuild=true
           dotnet pack src/Dotnet.Release.CveEnricher -c Release -p:OfficialBuild=true
 
       - name: Pack non-AOT (any) package
         run: |
+          dotnet pack src/Dotnet.Release.Tool -c Release -r any -p:PublishAot=false -p:OfficialBuild=true
           dotnet pack src/Dotnet.Release.Tools -c Release -r any -p:PublishAot=false -p:OfficialBuild=true
           dotnet pack src/Dotnet.Release.CveEnricher -c Release -r any -p:PublishAot=false -p:OfficialBuild=true
 
       - name: Pack linux-x64 AOT package
         run: |
+          dotnet pack src/Dotnet.Release.Tool -c Release -r linux-x64 -p:OfficialAotBuild=true
           dotnet pack src/Dotnet.Release.Tools -c Release -r linux-x64 -p:OfficialAotBuild=true
           dotnet pack src/Dotnet.Release.CveEnricher -c Release -r linux-x64 -p:OfficialAotBuild=true
 
       - name: Smoke test
         run: |
-          dotnet tool install -g Dotnet.Release.Tools --add-source artifacts/package/release --prerelease
+          dotnet tool install -g Dotnet.Release.Tool --add-source artifacts/package/release --prerelease
           dotnet-release --help || true
+          dotnet tool install -g ReleaseNotes.Gen --add-source artifacts/package/release --prerelease
+          release-notes-gen --help || true
           dotnet tool install -g Dotnet.Release.CveEnricher --add-source artifacts/package/release --prerelease
           dotnet-cve-enricher || true
 
@@ -173,6 +178,7 @@ jobs:
 
       - name: Pack RID-specific package
         run: |
+          dotnet pack src/Dotnet.Release.Tool -c Release -r ${{ matrix.rid }} -p:OfficialAotBuild=true
           dotnet pack src/Dotnet.Release.Tools -c Release -r ${{ matrix.rid }} -p:OfficialAotBuild=true
           dotnet pack src/Dotnet.Release.CveEnricher -c Release -r ${{ matrix.rid }} -p:OfficialAotBuild=true
 

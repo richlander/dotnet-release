@@ -11,6 +11,17 @@ public class GraphNavigationTests
     private ReleaseNotesGraph CreateGraph() => new(_client);
 
     [Fact]
+    public async Task GetLlmsIndex_ReturnsSupportedMajors()
+    {
+        var graph = CreateGraph();
+        var llms = await graph.GetLlmsIndexAsync();
+
+        Assert.NotNull(llms);
+        Assert.NotNull(llms.SupportedMajorReleases);
+        Assert.True(llms.SupportedMajorReleases.Count > 0);
+    }
+
+    [Fact]
     public async Task GetMajorReleaseIndex_ReturnsVersions()
     {
         var graph = CreateGraph();
@@ -61,5 +72,53 @@ public class GraphNavigationTests
 
         Assert.NotNull(year);
         Assert.Equal("2025", year.Year);
+    }
+
+    [Fact]
+    public async Task GetMonthIndex_ReturnsMonthLevelTimelineData()
+    {
+        var graph = CreateGraph();
+        var month = await graph.GetMonthIndexAsync("2026", "03");
+
+        Assert.NotNull(month);
+        Assert.Equal("2026", month.Year);
+        Assert.Equal("03", month.Month);
+        Assert.NotNull(month.Embedded?.Patches);
+        Assert.True(month.Embedded.Patches.Count > 0);
+    }
+
+    [Fact]
+    public async Task FollowDownloadLinks_ReturnsComponentDownloads()
+    {
+        var graph = CreateGraph();
+        var major = await graph.GetPatchReleaseIndexAsync("10.0");
+
+        Assert.NotNull(major);
+        Assert.True(major.Links.TryGetValue(LinkRelations.Downloads, out var downloadsLink));
+
+        var downloads = await graph.FollowLinkAsync<DownloadsIndex>(downloadsLink!);
+        Assert.NotNull(downloads);
+        Assert.NotNull(downloads.Embedded?.Components);
+        Assert.True(downloads.Embedded.Components.Count > 0);
+
+        var runtime = downloads.Embedded.Components.First(component => component.Name == "runtime");
+        Assert.NotNull(runtime.Links);
+        Assert.True(runtime.Links!.TryGetValue(HalTerms.Self, out var runtimeLink));
+
+        var component = await graph.FollowLinkAsync<ComponentDownload>(runtimeLink!);
+        Assert.NotNull(component);
+        Assert.Equal("runtime", component.Component);
+        Assert.NotNull(component.Embedded?.Downloads);
+        Assert.True(component.Embedded.Downloads.Count > 0);
+
+        Assert.NotNull(downloads.Embedded.FeatureBands);
+        var band = downloads.Embedded.FeatureBands.First();
+        Assert.NotNull(band.Links);
+        Assert.True(band.Links!.TryGetValue(HalTerms.Self, out var bandLink));
+
+        var sdkDownloads = await graph.FollowLinkAsync<SdkDownloadInfo>(bandLink!);
+        Assert.NotNull(sdkDownloads);
+        Assert.NotNull(sdkDownloads.Embedded?.Downloads);
+        Assert.True(sdkDownloads.Embedded.Downloads.Count > 0);
     }
 }
