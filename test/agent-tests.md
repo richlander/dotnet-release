@@ -9,13 +9,13 @@ Validation scenarios for agent-driven skills. Each test defines a workflow an AI
 
 An agent audits the .NET supported OS matrix against upstream lifecycle data and, if issues are found, prepares a PR with fixes.
 
-### Flow
+### Supported OS flow
 
 ```text
 verify → early-out if clean → update JSON → regenerate markdown → PR
 ```
 
-### Steps
+### Supported OS steps
 
 1. **Verify** — Run `release-notes-gen verify supported-os <version>` for each active .NET version. The report categorizes issues as:
    - ⚠️ WARNING: EOL but still listed as supported — move to `unsupported-versions`
@@ -30,21 +30,21 @@ verify → early-out if clean → update JSON → regenerate markdown → PR
 4. **Regenerate** — Run `release-notes-gen generate supported-os <version> <core-path>/release-notes` to regenerate the markdown.
 5. **PR** — Create a branch, commit changes, and open a PR against `dotnet/core`.
 
-### Success criteria
+### Supported OS success criteria
 
 - Agent correctly interprets verify output to decide whether work is needed.
 - JSON edits are valid and follow existing structure (versions as strings, sorted newest-first).
 - Regenerated markdown reflects the JSON changes.
 - PR has a descriptive title and body summarizing what changed and why.
 
-### Exit codes
+### Supported OS exit codes
 
 | Code | Meaning |
 |------|---------|
 | 0 | No issues found — nothing to do |
 | 2 | Issues found — report written to stdout |
 
-### Skill reference
+### Supported OS skill reference
 
 See [`skills/update-supported-os/SKILL.md`](../skills/update-supported-os/SKILL.md) for the full agent instructions and [`references/verify-output-example.md`](../skills/update-supported-os/references/verify-output-example.md) for example verify output.
 
@@ -55,19 +55,19 @@ See [`skills/update-supported-os/SKILL.md`](../skills/update-supported-os/SKILL.
 
 An agent answers end-user questions about support lifecycle, timeline events, patch releases, and security disclosures by querying the public release graph instead of manually inspecting raw JSON.
 
-### Flow
+### Release graph flow
 
 ```text
 overview → timeline / release / cves drill-down → concise answer
 ```
 
-### Success criteria
+### Release graph success criteria
 
 - Agent starts with the broadest relevant `dotnet-release` query and drills down only as needed.
 - Date-based questions can be answered at the year, month, or exact-day level.
 - Security questions use `cves since` or `cves -n` with product/package filters when appropriate.
 - Answers reflect the tool output accurately and succinctly.
 
-### Skill reference
+### Release graph skill reference
 
 See [`skills/dotnet-releases/SKILL.md`](../skills/dotnet-releases/SKILL.md).
