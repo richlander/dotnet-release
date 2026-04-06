@@ -86,4 +86,29 @@ public class GraphNavigationTests
         Assert.NotNull(month.Embedded?.Patches);
         Assert.True(month.Embedded.Patches.Count > 0);
     }
+
+    [Fact]
+    public async Task FollowDownloadLinks_ReturnsComponentDownloads()
+    {
+        var graph = CreateGraph();
+        var major = await graph.GetPatchReleaseIndexAsync("10.0");
+
+        Assert.NotNull(major);
+        Assert.True(major.Links.TryGetValue(LinkRelations.Downloads, out var downloadsLink));
+
+        var downloads = await graph.FollowLinkAsync<DownloadsIndex>(downloadsLink!);
+        Assert.NotNull(downloads);
+        Assert.NotNull(downloads.Embedded?.Components);
+        Assert.True(downloads.Embedded.Components.Count > 0);
+
+        var runtime = downloads.Embedded.Components.First(component => component.Name == "runtime");
+        Assert.NotNull(runtime.Links);
+        Assert.True(runtime.Links!.TryGetValue(HalTerms.Self, out var runtimeLink));
+
+        var component = await graph.FollowLinkAsync<ComponentDownload>(runtimeLink!);
+        Assert.NotNull(component);
+        Assert.Equal("runtime", component.Component);
+        Assert.NotNull(component.Embedded?.Downloads);
+        Assert.True(component.Embedded.Downloads.Count > 0);
+    }
 }
