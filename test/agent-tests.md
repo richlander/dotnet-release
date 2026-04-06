@@ -47,3 +47,27 @@ verify → early-out if clean → update JSON → regenerate markdown → PR
 ### Skill reference
 
 See [`skills/update-supported-os/SKILL.md`](../skills/update-supported-os/SKILL.md) for the full agent instructions and [`references/verify-output-example.md`](../skills/update-supported-os/references/verify-output-example.md) for example verify output.
+
+## Test 2: Answer Release Graph Questions
+
+**Skill:** `dotnet-releases`  
+**Tool:** `dotnet-release`
+
+An agent answers end-user questions about support lifecycle, timeline events, patch releases, and security disclosures by querying the public release graph instead of manually inspecting raw JSON.
+
+### Flow
+
+```text
+overview → timeline / release / cves drill-down → concise answer
+```
+
+### Success criteria
+
+- Agent starts with the broadest relevant `dotnet-release` query and drills down only as needed.
+- Date-based questions can be answered at the year, month, or exact-day level.
+- Security questions use `cves since` or `cves -n` with product/package filters when appropriate.
+- Answers reflect the tool output accurately and succinctly.
+
+### Skill reference
+
+See [`skills/dotnet-releases/SKILL.md`](../skills/dotnet-releases/SKILL.md).

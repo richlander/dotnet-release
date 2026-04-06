@@ -73,4 +73,17 @@ public class GraphNavigationTests
         Assert.NotNull(year);
         Assert.Equal("2025", year.Year);
     }
+
+    [Fact]
+    public async Task GetMonthIndex_ReturnsMonthLevelTimelineData()
+    {
+        var graph = CreateGraph();
+        var month = await graph.GetMonthIndexAsync("2026", "03");
+
+        Assert.NotNull(month);
+        Assert.Equal("2026", month.Year);
+        Assert.Equal("03", month.Month);
+        Assert.NotNull(month.Embedded?.Patches);
+        Assert.True(month.Embedded.Patches.Count > 0);
+    }
 }

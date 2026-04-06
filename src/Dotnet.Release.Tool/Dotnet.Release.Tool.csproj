@@ -25,4 +25,8 @@
     <ProjectReference Include="..\Dotnet.Release.Client\Dotnet.Release.Client.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\skills\dotnet-releases\SKILL.md" Link="SKILL.md" />
+  </ItemGroup>
+
 </Project>

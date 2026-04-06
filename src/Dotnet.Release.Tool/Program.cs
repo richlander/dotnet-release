@@ -1,5 +1,6 @@
 using System.Globalization;
 using Dotnet.Release.Client;
+using Dotnet.Release.Graph;
 
 using var httpClient = new HttpClient();
 var graph = new ReleaseNotesGraph(httpClient);
@@ -17,6 +18,11 @@ try
     {
         PrintUsage();
         return 0;
+    }
+
+    if (command is "skill")
+    {
+        return PrintSkill();
     }
 
     return command switch
@@ -52,12 +58,14 @@ static void PrintUsage()
     Console.Error.WriteLine("  dotnet-release overview          Show latest supported releases and security status");
     Console.Error.WriteLine("  dotnet-release releases [--all]  List major releases");
     Console.Error.WriteLine("  dotnet-release release <ver>     Show recent patches for a major release");
-    Console.Error.WriteLine("  dotnet-release timeline [year]   Show the release timeline by year or month");
+    Console.Error.WriteLine("  dotnet-release timeline [period] Show the release timeline by year, month, or day");
+    Console.Error.WriteLine("  dotnet-release skill             Print agent guidance for release graph questions");
     Console.Error.WriteLine();
     Console.Error.WriteLine("Targeted query:");
     Console.Error.WriteLine("  dotnet-release cves [-n <months>] [--product <name>] [--package <name>]");
     Console.Error.WriteLine("  dotnet-release cves since <date> [--product <name>] [--package <name>]");
     Console.Error.WriteLine("    <date> accepts YYYY, YYYY-MM, or YYYY-MM-DD");
+    Console.Error.WriteLine("    timeline periods accept YYYY, YYYY-MM, YYYY-MM-DD, or separate year/month/day args");
     Console.Error.WriteLine();
     Console.Error.WriteLine("Notes:");
     Console.Error.WriteLine("  This tool is currently pinned to the dotnet/core release-index branch.");
@@ -187,26 +195,110 @@ static async Task<int> PrintTimelineAsync(ReleaseNotesGraph graph, string[] args
         return 0;
     }
 
-    var yearValue = args[1];
-    var yearSummary = await archives.GetYearAsync(yearValue);
-
-    if (yearSummary is null)
+    if (!TryParseTimelineTarget(args.Skip(1).ToArray(), out var target, out var error))
     {
-        Console.Error.WriteLine($"Timeline year not found: {yearValue}");
+        Console.Error.WriteLine(error);
+        Console.Error.WriteLine("Usage: dotnet-release timeline [YYYY | YYYY-MM | YYYY-MM-DD]");
+        Console.Error.WriteLine("       dotnet-release timeline <year> [month] [day]");
         return 1;
     }
 
-    var navigator = graph.GetArchiveNavigator(yearValue);
-    var months = (await navigator.GetAllMonthsAsync())
-        .OrderByDescending(m => m.Month, StringComparer.Ordinal)
+    var yearSummary = await archives.GetYearAsync(target.Year);
+
+    if (yearSummary is null)
+    {
+        Console.Error.WriteLine($"Timeline year not found: {target.Year}");
+        return 1;
+    }
+
+    if (target.Month is null)
+    {
+        var navigator = graph.GetArchiveNavigator(target.Year);
+        var months = (await navigator.GetAllMonthsAsync())
+            .OrderByDescending(m => m.Month, StringComparer.Ordinal)
+            .ToList();
+
+        Console.WriteLine($".NET release timeline for {target.Year}");
+
+        foreach (var month in months)
+        {
+            var label = CultureInfo.InvariantCulture.DateTimeFormat.GetMonthName(int.Parse(month.Month, CultureInfo.InvariantCulture));
+            Console.WriteLine($"  {month.Month}  {label,-9} {(month.Security ? "security" : "regular")}");
+        }
+
+        return 0;
+    }
+
+    var monthIndex = await graph.GetMonthIndexAsync(target.Year, target.Month);
+    if (monthIndex is null)
+    {
+        Console.Error.WriteLine($"Timeline period not found: {target.DisplayValue}");
+        return 1;
+    }
+
+    return PrintTimelineMonth(monthIndex, target.Day);
+}
+
+static int PrintTimelineMonth(HistoryMonthIndex monthIndex, DateOnly? day)
+{
+    var heading = day is null
+        ? $".NET release timeline for {FormatMonthYear(monthIndex.Year, monthIndex.Month)}"
+        : $".NET release timeline for {day:yyyy-MM-dd}";
+
+    Console.WriteLine(heading);
+    Console.WriteLine($"Month: {monthIndex.Year}-{monthIndex.Month}");
+    Console.WriteLine($"Security month: {(monthIndex.Security ? "yes" : "no")}");
+
+    if (monthIndex.Date is not null)
+    {
+        Console.WriteLine($"Primary release date: {FormatDate(monthIndex.Date)}");
+    }
+
+    var patches = (monthIndex.Embedded?.Patches?.Values ?? Enumerable.Empty<PatchReleaseVersionIndexEntry>())
+        .Where(patch => day is null || DateOnly.FromDateTime(patch.Date.Date) == day.Value)
+        .OrderByDescending(patch => patch.Date)
+        .ThenByDescending(patch => patch.Version, StringComparer.Ordinal)
         .ToList();
 
-    Console.WriteLine($".NET release timeline for {yearValue}");
+    var disclosures = (monthIndex.Embedded?.Disclosures ?? Array.Empty<CveRecordSummary>())
+        .Where(disclosure => day is null || disclosure.DisclosureDate == day.Value)
+        .OrderByDescending(disclosure => disclosure.DisclosureDate)
+        .ThenBy(disclosure => disclosure.Id, StringComparer.Ordinal)
+        .ToList();
 
-    foreach (var month in months)
+    if (patches.Count == 0 && disclosures.Count == 0 && day is not null)
     {
-        var label = CultureInfo.InvariantCulture.DateTimeFormat.GetMonthName(int.Parse(month.Month, CultureInfo.InvariantCulture));
-        Console.WriteLine($"  {month.Month}  {label,-9} {(month.Security ? "security" : "regular")}");
+        Console.WriteLine();
+        Console.WriteLine("No releases or security disclosures were published on that day.");
+        return 0;
+    }
+
+    if (patches.Count > 0)
+    {
+        Console.WriteLine();
+        Console.WriteLine(day is null ? "Patch releases:" : "Patch releases on this day:");
+
+        foreach (var patch in patches)
+        {
+            Console.WriteLine(
+                $"  {(patch.MajorRelease ?? "-"),-6} {patch.Version,-12} {FormatDate(patch.Date),-12} sdk {(patch.SdkVersion ?? "-"),-8} {DisplayPhase(patch.SupportPhase),-11} {(patch.Security ? "security" : "regular")}");
+        }
+    }
+
+    if (disclosures.Count > 0)
+    {
+        Console.WriteLine();
+        Console.WriteLine(day is null ? "Security disclosures:" : "Security disclosures on this day:");
+
+        foreach (var disclosure in disclosures)
+        {
+            var cvss = disclosure.CvssScore?.ToString("0.0", CultureInfo.InvariantCulture) ?? "n/a";
+            Console.WriteLine(
+                $"  {disclosure.Id}  {FormatDateOnly(disclosure.DisclosureDate),-12} CVSS {cvss} {(disclosure.CvssSeverity ?? "n/a"),-8} {disclosure.Title}");
+            PrintList("    releases", disclosure.AffectedReleases);
+            PrintList("    products", disclosure.AffectedProducts);
+            PrintList("    packages", disclosure.AffectedPackages);
+        }
     }
 
     return 0;
@@ -493,6 +585,149 @@ static bool TryParseSinceDate(string value, out DateTime parsed)
     return false;
 }
 
+static bool TryParseTimelineTarget(string[] values, out TimelineTarget target, out string? error)
+{
+    var parts = values
+        .Where(value => !string.IsNullOrWhiteSpace(value))
+        .Select(value => value.Trim())
+        .ToArray();
+
+    if (parts.Length == 1)
+    {
+        var token = parts[0];
+
+        if (TryParseYearValue(token, out var year))
+        {
+            target = new TimelineTarget(year, null, null);
+            error = null;
+            return true;
+        }
+
+        if (TryParseYearMonthValue(token, out year, out var month))
+        {
+            target = new TimelineTarget(year, month, null);
+            error = null;
+            return true;
+        }
+
+        if (TryParseDateValue(token, out var day))
+        {
+            target = new TimelineTarget(
+                day.Year.ToString("0000", CultureInfo.InvariantCulture),
+                day.Month.ToString("00", CultureInfo.InvariantCulture),
+                day);
+            error = null;
+            return true;
+        }
+    }
+    else if (parts.Length == 2 &&
+             TryParseYearValue(parts[0], out var year) &&
+             TryParseMonthValue(parts[1], out var month))
+    {
+        target = new TimelineTarget(year, month, null);
+        error = null;
+        return true;
+    }
+    else if (parts.Length == 3 &&
+             TryParseYearValue(parts[0], out var yearValue) &&
+             TryParseMonthValue(parts[1], out var monthValue) &&
+             TryParseDayValue(parts[2], out var dayValue) &&
+             DateOnly.TryParseExact(
+                 $"{yearValue}-{monthValue}-{dayValue}",
+                 "yyyy-MM-dd",
+                 CultureInfo.InvariantCulture,
+                 DateTimeStyles.None,
+                 out var date))
+    {
+        target = new TimelineTarget(yearValue, monthValue, date);
+        error = null;
+        return true;
+    }
+
+    error = "Could not parse the timeline period.";
+    target = default;
+    return false;
+}
+
+static bool TryParseYearValue(string value, out string year)
+{
+    if (value.Length == 4 &&
+        int.TryParse(value, CultureInfo.InvariantCulture, out var parsedYear) &&
+        parsedYear is >= 2000 and <= 3000)
+    {
+        year = parsedYear.ToString("0000", CultureInfo.InvariantCulture);
+        return true;
+    }
+
+    year = string.Empty;
+    return false;
+}
+
+static bool TryParseYearMonthValue(string value, out string year, out string month)
+{
+    var separators = new[] { '-', '/' };
+    var parts = value.Split(separators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    if (parts.Length == 2 &&
+        TryParseYearValue(parts[0], out year) &&
+        TryParseMonthValue(parts[1], out month))
+    {
+        return true;
+    }
+
+    year = string.Empty;
+    month = string.Empty;
+    return false;
+}
+
+static bool TryParseDateValue(string value, out DateOnly date)
+    => DateOnly.TryParseExact(
+        value,
+        ["yyyy-M-d", "yyyy-MM-dd", "yyyy/M/d", "yyyy/MM/dd"],
+        CultureInfo.InvariantCulture,
+        DateTimeStyles.None,
+        out date);
+
+static bool TryParseMonthValue(string value, out string month)
+{
+    if (int.TryParse(value, CultureInfo.InvariantCulture, out var parsedMonth) &&
+        parsedMonth is >= 1 and <= 12)
+    {
+        month = parsedMonth.ToString("00", CultureInfo.InvariantCulture);
+        return true;
+    }
+
+    month = string.Empty;
+    return false;
+}
+
+static bool TryParseDayValue(string value, out string day)
+{
+    if (int.TryParse(value, CultureInfo.InvariantCulture, out var parsedDay) &&
+        parsedDay is >= 1 and <= 31)
+    {
+        day = parsedDay.ToString("00", CultureInfo.InvariantCulture);
+        return true;
+    }
+
+    day = string.Empty;
+    return false;
+}
+
+static int PrintSkill()
+{
+    using var stream = typeof(Program).Assembly.GetManifestResourceStream("Dotnet.Release.Tool.SKILL.md");
+    if (stream is null)
+    {
+        Console.Error.WriteLine("Error: SKILL.md resource not found.");
+        return 1;
+    }
+
+    using var reader = new StreamReader(stream);
+    Console.Write(reader.ReadToEnd());
+    return 0;
+}
+
 static string DisplayReleaseType(Dotnet.Release.ReleaseType? releaseType) => releaseType switch
 {
     Dotnet.Release.ReleaseType.LTS => "LTS",
@@ -513,8 +748,48 @@ static string DisplayPhase(Dotnet.Release.SupportPhase? phase) => phase switch
 static string FormatDate(DateTimeOffset? date)
     => date?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "n/a";
 
+static string FormatDateOnly(DateOnly? date)
+    => date?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "n/a";
+
+static string FormatMonthYear(string year, string month)
+{
+    var name = CultureInfo.InvariantCulture.DateTimeFormat.GetMonthName(int.Parse(month, CultureInfo.InvariantCulture));
+    return $"{name} {year}";
+}
+
+static void PrintList(string label, IEnumerable<string>? values, int maxItems = 6)
+{
+    if (values is null)
+    {
+        return;
+    }
+
+    var items = values
+        .Where(value => !string.IsNullOrWhiteSpace(value))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+    if (items.Count == 0)
+    {
+        return;
+    }
+
+    var shown = items.Take(maxItems).ToList();
+    var suffix = items.Count > shown.Count ? $", ... (+{items.Count - shown.Count} more)" : string.Empty;
+    Console.WriteLine($"{label}: {string.Join(", ", shown)}{suffix}");
+}
+
 internal readonly record struct CveQueryOptions(
     DateTime? Since,
     int? MonthsBack,
     string? Product,
     string? Package);
+
+internal readonly record struct TimelineTarget(
+    string Year,
+    string? Month,
+    DateOnly? Day)
+{
+    public string DisplayValue => Day?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+        ?? (Month is null ? Year : $"{Year}-{Month}");
+}
