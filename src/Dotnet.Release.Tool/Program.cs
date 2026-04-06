@@ -254,10 +254,15 @@ static int PrintTimelineMonth(HistoryMonthIndex monthIndex, DateOnly? day)
         Console.WriteLine($"Primary release date: {FormatDate(monthIndex.Date)}");
     }
 
-    var patches = (monthIndex.Embedded?.Patches?.Values ?? Enumerable.Empty<PatchReleaseVersionIndexEntry>())
-        .Where(patch => day is null || DateOnly.FromDateTime(patch.Date.Date) == day.Value)
-        .OrderByDescending(patch => patch.Date)
-        .ThenByDescending(patch => patch.Version, StringComparer.Ordinal)
+    var patches = (monthIndex.Embedded?.Patches ?? new Dictionary<string, PatchReleaseVersionIndexEntry>())
+        .Select(kvp => new
+        {
+            Major = kvp.Value.MajorRelease ?? kvp.Key,
+            Patch = kvp.Value
+        })
+        .Where(entry => day is null || DateOnly.FromDateTime(entry.Patch.Date.Date) == day.Value)
+        .OrderByDescending(entry => entry.Patch.Date)
+        .ThenByDescending(entry => entry.Patch.Version, StringComparer.Ordinal)
         .ToList();
 
     var disclosures = (monthIndex.Embedded?.Disclosures ?? Array.Empty<CveRecordSummary>())
@@ -278,10 +283,11 @@ static int PrintTimelineMonth(HistoryMonthIndex monthIndex, DateOnly? day)
         Console.WriteLine();
         Console.WriteLine(day is null ? "Patch releases:" : "Patch releases on this day:");
 
-        foreach (var patch in patches)
+        foreach (var entry in patches)
         {
+            var patch = entry.Patch;
             Console.WriteLine(
-                $"  {(patch.MajorRelease ?? "-"),-6} {patch.Version,-12} {FormatDate(patch.Date),-12} sdk {(patch.SdkVersion ?? "-"),-8} {DisplayPhase(patch.SupportPhase),-11} {(patch.Security ? "security" : "regular")}");
+                $"  {entry.Major,-6} {patch.Version,-12} {FormatDate(patch.Date),-12} sdk {(patch.SdkVersion ?? "-"),-8} {DisplayPhase(patch.SupportPhase),-11} {(patch.Security ? "security" : "regular")}");
         }
     }
 
