@@ -3,9 +3,9 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <PackAsTool>true</PackAsTool>
-    <ToolCommandName>release-notes-gen</ToolCommandName>
-    <VersionPrefix>3.0.0</VersionPrefix>
-    <PackageId>ReleaseNotes.Gen</PackageId>
+    <ToolCommandName>release-notes</ToolCommandName>
+    <VersionPrefix>1.0.0</VersionPrefix>
+    <PackageId>release-notes</PackageId>
     <Description>Maintainer CLI for generating and verifying .NET release notes data</Description>
     <!-- Size optimizations for Native AOT -->
     <UseSystemResourceKeys>true</UseSystemResourceKeys>

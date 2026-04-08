@@ -5,7 +5,7 @@ Validation scenarios for agent-driven skills. Each test defines a workflow an AI
 ## Test 1: Update Supported OS
 
 **Skill:** `update-supported-os`
-**Tool:** `release-notes-gen verify supported-os`
+**Tool:** `release-notes verify supported-os`
 
 An agent audits the .NET supported OS matrix against upstream lifecycle data and, if issues are found, prepares a PR with fixes.
 
@@ -17,7 +17,7 @@ verify → early-out if clean → update JSON → regenerate markdown → PR
 
 ### Supported OS steps
 
-1. **Verify** — Run `release-notes-gen verify supported-os <version>` for each active .NET version. The report categorizes issues as:
+1. **Verify** — Run `release-notes verify supported-os <version>` for each active .NET version. The report categorizes issues as:
    - ⚠️ WARNING: EOL but still listed as supported — move to `unsupported-versions`
    - ❗ IMPORTANT: Active releases not listed — consider adding to `supported-versions`
    - 💡 TIP: Active but listed as unsupported — verify intentional
@@ -27,7 +27,7 @@ verify → early-out if clean → update JSON → regenerate markdown → PR
    - Move EOL versions from `supported-versions` to `unsupported-versions`
    - Add missing active versions to `supported-versions` (sorted newest-first)
    - Update `last-updated` to today's date
-4. **Regenerate** — Run `release-notes-gen generate supported-os <version> <core-path>/release-notes` to regenerate the markdown.
+4. **Regenerate** — Run `release-notes generate supported-os <version> <core-path>/release-notes` to regenerate the markdown.
 5. **PR** — Create a branch, commit changes, and open a PR against `dotnet/core`.
 
 ### Supported OS success criteria

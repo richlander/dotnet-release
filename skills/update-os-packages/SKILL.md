@@ -15,7 +15,7 @@ Audit and update `os-packages.json` files in the [dotnet/core](https://github.co
 
 ## Prerequisites
 
-The `release-notes-gen` tool is installed globally. Run `release-notes-gen --help` to confirm.
+The `release-notes` tool is installed globally. Run `release-notes --help` to confirm.
 
 ## Inputs
 
@@ -33,7 +33,7 @@ For each version, read `release-notes/{version}/os-packages.json`.
 
 ### 2. Verify package names
 
-Run the `release-notes-gen verify os-packages` command for each version. The tool checks each package name against upstream distro package feeds and reports mismatches.
+Run the `release-notes verify os-packages` command for each version. The tool checks each package name against upstream distro package feeds and reports mismatches.
 
 ### 3. Cross-reference with supported-os.json
 

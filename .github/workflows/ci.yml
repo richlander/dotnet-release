@@ -134,8 +134,8 @@ jobs:
         run: |
           dotnet tool install -g Dotnet.Release.Tool --add-source artifacts/package/release --prerelease
           dotnet-release --help || true
-          dotnet tool install -g ReleaseNotes.Gen --add-source artifacts/package/release --prerelease
-          release-notes-gen --help || true
+          dotnet tool install -g release-notes --add-source artifacts/package/release --prerelease
+          release-notes --help || true
           dotnet tool install -g Dotnet.Release.CveEnricher --add-source artifacts/package/release --prerelease
           dotnet-cve-enricher || true
 

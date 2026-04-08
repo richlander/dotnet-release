@@ -1,6 +1,6 @@
 ---
 name: update-supported-os
-description: Audit and update supported-os.json files in dotnet/core to reflect current OS version support. Uses release-notes-gen verify for automated checking against upstream lifecycle data.
+description: Audit and update supported-os.json files in dotnet/core to reflect current OS version support. Uses release-notes verify for automated checking against upstream lifecycle data.
 ---
 
 # Update Supported OS
@@ -15,7 +15,7 @@ Audit and update `supported-os.json` files in the [dotnet/core](https://github.c
 
 ## Prerequisites
 
-The `release-notes-gen` tool is installed globally. Run `release-notes-gen --help` to confirm.
+The `release-notes` tool is installed globally. Run `release-notes --help` to confirm.
 
 ## Inputs
 
@@ -31,16 +31,16 @@ The user provides:
 Run the verify command for each .NET version to audit:
 
 ```bash
-release-notes-gen verify supported-os <version> [path-or-url]
+release-notes verify supported-os <version> [path-or-url]
 ```
 
 Examples:
 ```bash
 # Check against live data on GitHub (default)
-release-notes-gen verify supported-os 10.0
+release-notes verify supported-os 10.0
 
 # Check against a local clone
-release-notes-gen verify supported-os 10.0 ~/git/core/release-notes
+release-notes verify supported-os 10.0 ~/git/core/release-notes
 ```
 
 **Interpret the exit code:**
@@ -86,7 +86,7 @@ For each confirmed change, edit `release-notes/<version>/supported-os.json`:
 After updating the JSON, regenerate the markdown file:
 
 ```bash
-release-notes-gen generate supported-os <version> <core-path>/release-notes
+release-notes generate supported-os <version> <core-path>/release-notes
 ```
 
 This overwrites `supported-os.md` with content derived from the updated JSON.
@@ -111,7 +111,7 @@ Check if any newly added distro versions need entries in `os-packages.json`. If 
 
 1. Run verify again to confirm issues are resolved:
    ```bash
-   release-notes-gen verify supported-os <version> <core-path>/release-notes
+   release-notes verify supported-os <version> <core-path>/release-notes
    ```
    Expect exit code 0 (or only TIP/CAUTION items remaining).
 
