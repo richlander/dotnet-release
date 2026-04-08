@@ -81,4 +81,4 @@ Start broad, then drill down:
 - Summarize the result in natural language with exact dates and versions.
 - Avoid dumping raw command output unless the user asks for it.
 - If a question needs package or product scoping, add `--package` or `--product` instead of manually filtering.
-- Use `release-notes-gen` only for maintainer workflows; it is not the public query surface.
+- Use `release-notes` only for maintainer workflows; it is not the public query surface.

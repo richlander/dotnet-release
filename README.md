@@ -31,7 +31,7 @@ Install tools globally:
 
 ```bash
 dotnet tool install -g Dotnet.Release.Tool
-dotnet tool install -g ReleaseNotes.Gen
+dotnet tool install -g release-notes
 ```
 
 ### `dotnet-release`
@@ -69,14 +69,14 @@ dotnet-release cves --product runtime -n 12
 dotnet-release cves --package System.Security.Cryptography.Cose since 2026-01
 ```
 
-### `release-notes-gen`
+### `release-notes`
 
 Maintainer CLI for generating markdown and index files from .NET release data.
 
 | Subcommand | Description |
 |---|---|
-| `release-notes-gen generate supported-os <version>` | Generates supported-os.md from supported-os.json |
-| `release-notes-gen generate os-packages <version>` | Generates os-packages.md from os-packages.json |
+| `release-notes generate supported-os <version>` | Generates supported-os.md from supported-os.json |
+| `release-notes generate os-packages <version>` | Generates os-packages.md from os-packages.json |
 
 Options:
 
@@ -87,7 +87,7 @@ Options:
 Examples:
 
 ```bash
-release-notes-gen generate supported-os 10.0
-release-notes-gen generate os-packages 10.0 ~/git/core/release-notes
-release-notes-gen generate supported-os --export-template > my-template.md
+release-notes generate supported-os 10.0
+release-notes generate os-packages 10.0 ~/git/core/release-notes
+release-notes generate supported-os --export-template > my-template.md
 ```

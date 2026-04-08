@@ -1,4 +1,4 @@
-# release-notes-gen
+# release-notes
 
 CLI tool for generating release metadata from .NET release data and the VMR (dotnet/dotnet).
 
@@ -26,7 +26,7 @@ CLI tool for generating release metadata from .NET release data and the VMR (dot
 Produces a structured JSON change log between two VMR refs, with per-repo commit/PR attribution, VMR commit mapping, and optional CVE cross-referencing.
 
 ```bash
-release-notes-gen generate changes <repo-path> --base <ref> --head <ref> [options]
+release-notes generate changes <repo-path> --base <ref> --head <ref> [options]
 ```
 
 Options:
@@ -44,12 +44,12 @@ Examples:
 
 ```bash
 # Changes between two preview tags
-release-notes-gen generate changes ~/git/dotnet \
+release-notes generate changes ~/git/dotnet \
   --base v11.0.0-preview.2.26159.112 \
   --head v11.0.0-preview.3.26179.102
 
 # Changes on main with CVE cross-referencing
-release-notes-gen generate changes ~/git/dotnet \
+release-notes generate changes ~/git/dotnet \
   --base v11.0.0-preview.2.26159.112 --head main \
   --branch main --cve-repo ~/git/core --output changes.json
 ```
@@ -59,7 +59,7 @@ release-notes-gen generate changes ~/git/dotnet \
 Lists the preview release versions currently visible in a dotnet/dotnet clone, one per line, along with the head ref an agent can feed into `generate changes`.
 
 ```bash
-release-notes-gen query changes-previews ~/git/dotnet
+release-notes query changes-previews ~/git/dotnet
 
 # Example output
 11.0.0-preview.3  head=origin/release/11.0.1xx-preview3
@@ -71,7 +71,7 @@ release-notes-gen query changes-previews ~/git/dotnet
 Produces build metadata for API verification against nightly NuGet packages. Reads VMR version info and queries the nightly NuGet feed for latest package versions.
 
 ```bash
-release-notes-gen generate build-metadata <repo-path> --base <ref> --head <ref> [--output <file>]
+release-notes generate build-metadata <repo-path> --base <ref> --head <ref> [--output <file>]
 ```
 
 Output includes:
@@ -126,8 +126,8 @@ dnx dotnet-inspect -y -- find "*Zstandard*" \
 Generates markdown from .NET release JSON data for support matrices and dependency tables.
 
 ```bash
-release-notes-gen generate <type> <version> [path-or-url] [--template <file>]
-release-notes-gen generate <type> --export-template
+release-notes generate <type> <version> [path-or-url] [--template <file>]
+release-notes generate <type> --export-template
 ```
 
 ### generate releases / releases-index
@@ -135,8 +135,8 @@ release-notes-gen generate <type> --export-template
 Generates release pages and index files from the dotnet/core release-notes tree.
 
 ```bash
-release-notes-gen generate releases [path] [--template <file>]
-release-notes-gen generate releases-index [path]
+release-notes generate releases [path] [--template <file>]
+release-notes generate releases-index [path]
 ```
 
 ### generate indexes
@@ -144,10 +144,10 @@ release-notes-gen generate releases-index [path]
 Generates version, timeline, and LLMs index files.
 
 ```bash
-release-notes-gen generate indexes <input-dir> [output-dir] [--url-root <url>]
-release-notes-gen generate version-index <input-dir> [output-dir] [--url-root <url>]
-release-notes-gen generate timeline-index <input-dir> [output-dir] [--url-root <url>]
-release-notes-gen generate llms-index <input-dir> [output-dir] [--url-root <url>]
+release-notes generate indexes <input-dir> [output-dir] [--url-root <url>]
+release-notes generate version-index <input-dir> [output-dir] [--url-root <url>]
+release-notes generate timeline-index <input-dir> [output-dir] [--url-root <url>]
+release-notes generate llms-index <input-dir> [output-dir] [--url-root <url>]
 ```
 
 ### verify
@@ -155,8 +155,8 @@ release-notes-gen generate llms-index <input-dir> [output-dir] [--url-root <url>
 Validates generated release data against source JSON.
 
 ```bash
-release-notes-gen verify <type> <version> [path-or-url]
-release-notes-gen verify releases [version] [path] [--skip-hash]
+release-notes verify <type> <version> [path-or-url]
+release-notes verify releases [version] [path] [--skip-hash]
 ```
 
 ### query distro-packages
@@ -164,7 +164,7 @@ release-notes-gen verify releases [version] [path] [--skip-hash]
 Queries distro package availability for a given .NET version.
 
 ```bash
-release-notes-gen query distro-packages --dotnet-version <ver> [--output <file>]
+release-notes query distro-packages --dotnet-version <ver> [--output <file>]
 ```
 
 Requires PKGS_ORG_TOKEN environment variable.
@@ -177,5 +177,5 @@ Requires PKGS_ORG_TOKEN environment variable.
 ## Installation
 
 ```bash
-dotnet tool install -g ReleaseNotes.Gen --prerelease
+dotnet tool install -g release-notes --prerelease
 ```
