@@ -185,7 +185,7 @@ public static class ReleasesVerifier
         var versionMismatches = await VerifyLatestVersionFilesAsync(version, overview, client, log);
 
         // Verify aka.ms redirect targets match releases.json URLs
-        var akamsLinks = CollectAkamsLinks(release, version, releasesNotesPath, log);
+        var akamsLinks = CollectAkamsLinks(release, overview, version, releasesNotesPath, log);
         var akamsMismatches = await VerifyAkamsLinksAsync(akamsLinks, log);
 
         // Build report
@@ -380,7 +380,7 @@ public static class ReleasesVerifier
     /// Each link is paired with the expected concrete download URL from releases.json.
     /// </summary>
     static List<AkamsInfo> CollectAkamsLinks(
-        PatchRelease release, string version, string releasesNotesPath, TextWriter log)
+        PatchRelease release, MajorReleaseOverview overview, string version, string releasesNotesPath, TextWriter log)
     {
         var links = new List<AkamsInfo>();
 
@@ -398,11 +398,12 @@ public static class ReleasesVerifier
         {
             // Build lookup: file name → concrete URL from releases.json
             var urlByName = BuildFileUrlLookup(release);
+            var sdkBandLookups = BuildSdkBandUrlLookups(overview);
 
             foreach (var jsonFile in Directory.GetFiles(downloadsDir, "*.json"))
             {
                 if (Path.GetFileName(jsonFile) == "index.json") continue;
-                AddAkamsFromDownloadsFile(links, jsonFile, urlByName, log);
+                AddAkamsFromDownloadsFile(links, jsonFile, urlByName, sdkBandLookups, log);
             }
         }
 
@@ -442,11 +443,53 @@ public static class ReleasesVerifier
         }
     }
 
+    static Dictionary<string, Dictionary<string, string>> BuildSdkBandUrlLookups(MajorReleaseOverview overview)
+    {
+        var lookups = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var patch in overview.Releases)
+        {
+            if (patch.Sdks is null)
+            {
+                continue;
+            }
+
+            foreach (var sdk in patch.Sdks)
+            {
+                string band = GetSdkFeatureBand(sdk.Version);
+                if (lookups.ContainsKey(band))
+                {
+                    continue;
+                }
+
+                var bandLookup = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                AddFilesToLookup(bandLookup, sdk.Files);
+                lookups.Add(band, bandLookup);
+            }
+        }
+
+        return lookups;
+    }
+
+    static string GetSdkFeatureBand(string sdkVersion)
+    {
+        if (string.IsNullOrEmpty(sdkVersion) || sdkVersion.Length < 5)
+        {
+            return sdkVersion;
+        }
+
+        return $"{sdkVersion[..5]}xx";
+    }
+
     /// <summary>
     /// Reads a downloads/*.json file and collects aka.ms → expected URL pairs.
     /// </summary>
     static void AddAkamsFromDownloadsFile(
-        List<AkamsInfo> links, string jsonFile, Dictionary<string, string> urlByName, TextWriter log)
+        List<AkamsInfo> links,
+        string jsonFile,
+        Dictionary<string, string> urlByName,
+        Dictionary<string, Dictionary<string, string>> sdkBandLookups,
+        TextWriter log)
     {
         try
         {
@@ -455,6 +498,18 @@ public static class ReleasesVerifier
             if (download?.Embedded?.Downloads is null) return;
 
             string component = download.Component ?? Path.GetFileNameWithoutExtension(jsonFile);
+            Dictionary<string, string>? expectedLookup = null;
+
+            if (component.Equals("sdk", StringComparison.OrdinalIgnoreCase) &&
+                !string.IsNullOrEmpty(download.FeatureBand))
+            {
+                if (!sdkBandLookups.TryGetValue(download.FeatureBand, out expectedLookup))
+                {
+                    log.WriteLine($"  ⚠️ Could not find releases.json entries for SDK feature band {download.FeatureBand}.");
+                }
+            }
+
+            expectedLookup ??= urlByName;
 
             foreach (var (_, file) in download.Embedded.Downloads)
             {
@@ -464,7 +519,7 @@ public static class ReleasesVerifier
                     downloadLink.Href.Contains("aka.ms", StringComparison.OrdinalIgnoreCase))
                 {
                     // Match the download file name to the concrete URL in releases.json
-                    if (urlByName.TryGetValue(file.Name, out var expectedUrl))
+                    if (expectedLookup.TryGetValue(file.Name, out var expectedUrl))
                     {
                         links.Add(new AkamsInfo(component, file.Name, downloadLink.Href, expectedUrl));
                     }
