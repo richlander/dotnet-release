@@ -17,5 +17,6 @@
   <Folder Name="/test/">
     <Project Path="test/Dotnet.Release.Graph.Tests/Dotnet.Release.Graph.Tests.csproj" />
     <Project Path="test/Dotnet.Release.Client.Tests/Dotnet.Release.Client.Tests.csproj" />
+    <Project Path="test/Dotnet.Release.ChangesHandler.Tests/Dotnet.Release.ChangesHandler.Tests.csproj" />
   </Folder>
 </Solution>
