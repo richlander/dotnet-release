@@ -114,6 +114,10 @@ public record PatchReleaseVersionIndexEntry(
      Description("Highest SDK version included in this patch release")]
     public string? SdkVersion { get; init; }
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull),
+     Description("All SDK versions included in this patch release")]
+    public IReadOnlyList<string>? SdkVersions { get; init; }
+
     [JsonPropertyName("_links"),
      Description("HAL+JSON links for navigation")]
     public Dictionary<string, HalLink> Links { get; init; } = [];

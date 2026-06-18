@@ -358,6 +358,7 @@ public class ShipIndexFiles
                     {
                         MajorRelease = majorVersion,
                         SdkVersion = sdkVersions?.FirstOrDefault(),
+                        SdkVersions = sdkVersions,
                         Links = HalHelpers.OrderLinks(patchLinks)
                     };
                 }
