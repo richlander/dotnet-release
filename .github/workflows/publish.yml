@@ -36,7 +36,8 @@ jobs:
           name: nupkg-libraries
           path: ./nupkg/*.nupkg
 
-  # Build AOT tool packages per RID
+  # Build AOT tool packages per RID. Windows/macOS runners are used here, not
+  # in CI, so PR validation stays on cheaper Linux runners.
   pack-tool-rid:
     strategy:
       matrix:

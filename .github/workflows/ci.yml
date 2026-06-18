@@ -93,7 +93,9 @@ jobs:
       - name: Test
         run: dotnet test DotnetRelease.slnx -c Release --no-build
 
-  # Pack on Ubuntu (pointer package, non-AOT fallback, and linux-x64 AOT)
+  # Pack on Ubuntu (pointer package, non-AOT fallback, and linux-x64 AOT).
+  # Windows/macOS packages are built by the Publish workflow to keep expensive
+  # runners off the per-PR path.
   pack:
     needs: build
     runs-on: ubuntu-latest
@@ -146,21 +148,17 @@ jobs:
           path: artifacts/package/release/*.nupkg
           if-no-files-found: error
 
-  # RID-specific AOT builds (cross-platform matrix)
+  # RID-specific AOT builds on Linux runners. Windows/macOS AOT packages are
+  # built by the Publish workflow instead, trading per-PR cross-platform
+  # packaging coverage for lower Actions cost.
   pack-rid:
     needs: build
     strategy:
       fail-fast: false
       matrix:
         include:
-          - rid: win-x64
-            os: windows-latest
-          - rid: win-arm64
-            os: windows-latest
           - rid: linux-arm64
             os: ubuntu-24.04-arm
-          - rid: osx-arm64
-            os: macos-latest
 
     runs-on: ${{ matrix.os }}
 
