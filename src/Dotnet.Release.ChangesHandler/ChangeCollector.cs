@@ -39,6 +39,14 @@ public partial class ChangeCollector(HttpClient httpClient)
                     commit.Sha
                 );
             }
+            else if (prNumber == 0)
+            {
+                var pr = await GetPullRequestForCommitAsync(org, repo, commit.Sha);
+                if (pr is not null && !prs.ContainsKey(pr.Number))
+                {
+                    prs[pr.Number] = pr;
+                }
+            }
         }
 
         return new CompareResult([.. prs.Values], orderedShas);
@@ -84,9 +92,7 @@ public partial class ChangeCollector(HttpClient httpClient)
     private async Task<List<string>> GetPrLabelsAsync(string org, string repo, int prNumber)
     {
         var url = $"{GitHubApiBase}/repos/{org}/{repo}/pulls/{prNumber}";
-        var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.Add("Accept", "application/vnd.github+json");
-        request.Headers.Add("X-GitHub-Api-Version", "2022-11-28");
+        var request = CreateGitHubRequest(url);
 
         var response = await httpClient.SendAsync(request);
         if (!response.IsSuccessStatusCode)
@@ -99,6 +105,44 @@ public partial class ChangeCollector(HttpClient httpClient)
         return pr?.Labels?.Select(l => l.Name).ToList() ?? [];
     }
 
+    private async Task<PullRequestInfo?> GetPullRequestForCommitAsync(string org, string repo, string sha)
+    {
+        var url = $"{GitHubApiBase}/repos/{org}/{repo}/commits/{sha}/pulls";
+        var request = CreateGitHubRequest(url);
+
+        var response = await httpClient.SendAsync(request);
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            var shortSha = sha.Length > 7 ? sha[..7] : sha;
+            Console.Error.WriteLine(
+                $"Warning: GitHub commits-to-PRs API returned {response.StatusCode} for {org}/{repo}@{shortSha}: {body}");
+            return null;
+        }
+
+        var json = await response.Content.ReadAsStreamAsync();
+        var pullRequests = await JsonSerializer.DeserializeAsync(json, GitHubSerializerContext.Default.ListGitHubPullRequest);
+        if (pullRequests is null or { Count: 0 })
+        {
+            return null;
+        }
+
+        var pullRequest = pullRequests.FirstOrDefault(
+            pr => pr.MergeCommitSha?.Equals(sha, StringComparison.OrdinalIgnoreCase) == true)
+            ?? pullRequests[0];
+
+        if (pullRequest.Number <= 0 || string.IsNullOrEmpty(pullRequest.HtmlUrl))
+        {
+            return null;
+        }
+
+        return new PullRequestInfo(
+            pullRequest.Number,
+            pullRequest.Title ?? "",
+            pullRequest.HtmlUrl,
+            sha);
+    }
+
     private async Task<List<CompareCommit>> GetCompareCommitsAsync(
         string org, string repo, string baseSha, string headSha)
     {
@@ -108,9 +152,7 @@ public partial class ChangeCollector(HttpClient httpClient)
         while (true)
         {
             var url = $"{GitHubApiBase}/repos/{org}/{repo}/compare/{baseSha}...{headSha}?per_page={MaxPerPage}&page={page}";
-            var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.Add("Accept", "application/vnd.github+json");
-            request.Headers.Add("X-GitHub-Api-Version", "2022-11-28");
+            var request = CreateGitHubRequest(url);
 
             var response = await httpClient.SendAsync(request);
 
@@ -144,6 +186,14 @@ public partial class ChangeCollector(HttpClient httpClient)
         }
 
         return allCommits;
+    }
+
+    private static HttpRequestMessage CreateGitHubRequest(string url)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Add("Accept", "application/vnd.github+json");
+        request.Headers.Add("X-GitHub-Api-Version", "2022-11-28");
+        return request;
     }
 
     internal static int ParsePrNumber(string commitMessage)
@@ -227,12 +277,25 @@ internal record GitHubLabel(
 );
 
 internal record GitHubPullRequest(
+    [property: JsonPropertyName("number")]
+    int Number,
+
+    [property: JsonPropertyName("title")]
+    string? Title,
+
+    [property: JsonPropertyName("html_url")]
+    string? HtmlUrl,
+
+    [property: JsonPropertyName("merge_commit_sha")]
+    string? MergeCommitSha,
+
     [property: JsonPropertyName("labels")]
     IList<GitHubLabel>? Labels
 );
 
 [JsonSerializable(typeof(CompareResponse))]
 [JsonSerializable(typeof(GitHubPullRequest))]
+[JsonSerializable(typeof(List<GitHubPullRequest>))]
 internal partial class GitHubSerializerContext : JsonSerializerContext
 {
 }
