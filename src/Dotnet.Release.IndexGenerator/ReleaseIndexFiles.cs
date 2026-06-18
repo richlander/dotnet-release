@@ -347,6 +347,7 @@ public class ReleaseIndexFiles
                             phase)
                         {
                             SdkVersion = e.SdkVersions?.FirstOrDefault(),
+                            SdkVersions = e.SdkVersions,
                             Links = HalHelpers.OrderLinks(links)
                         };
                     }).ToList())

@@ -19,5 +19,7 @@ public class PatchSummary
     public SupportPhase? Phase => _entry.SupportPhase;
     public DateTimeOffset? ReleaseDate => _entry.Date;
     public bool IsSecurityUpdate => _entry.Security;
+    public string? SdkVersion => _entry.SdkVersion;
+    public IReadOnlyList<string>? SdkVersions => _entry.SdkVersions;
     public IReadOnlyDictionary<string, HalLink>? Links => _entry.Links;
 }
