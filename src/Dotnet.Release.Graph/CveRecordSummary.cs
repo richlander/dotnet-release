@@ -46,6 +46,10 @@ public record CveRecordSummary(
     [Description("Platforms affected by the CVE"),
      JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IList<string>? Platforms { get; set; }
+
+    [Description("Cross-database identifiers for the same vulnerability (OSV-style aliases, e.g. a GHSA ID). Each value is self-typed by its prefix (GHSA-, CVE-, ...)."),
+     JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IList<string>? Aliases { get; set; }
 }
 
 [Description("Collection of simplified CVE records")]

@@ -86,7 +86,11 @@ public record Cve(
     string? Weakness = null,
 
     [property: Description("CVE Numbering Authority information.")]
-    Cna? Cna = null
+    Cna? Cna = null,
+
+    [property: Description("Cross-database identifiers for the same vulnerability (OSV-style aliases, e.g. a GHSA ID). Each value is self-typed by its prefix (GHSA-, CVE-, ...)."),
+        JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    IList<string>? Aliases = null
 );
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
