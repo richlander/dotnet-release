@@ -17,6 +17,7 @@
 
   <!-- NuGet package metadata -->
   <PropertyGroup>
+    <VersionPrefix>1.1.0</VersionPrefix>
     <Authors>Rich Lander</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/richlander/dotnet-release</PackageProjectUrl>
