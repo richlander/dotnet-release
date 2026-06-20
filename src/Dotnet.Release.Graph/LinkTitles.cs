@@ -30,6 +30,7 @@ public static class LinkTitles
     // CVE-related
     public static readonly string CveRecordsJson = string.Intern("CVE records (JSON)");
     public static readonly string CveMarkdown = string.Intern("CVE records");
+    public static readonly string CveIndex = string.Intern("CVE index (JSON)");
 
     // Latest pointers (kind-based)
     public static readonly string LatestPatch = string.Intern("Latest patch");
