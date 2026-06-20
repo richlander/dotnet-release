@@ -366,11 +366,6 @@ public class ReleaseIndexFiles
                         };
                     }).ToList())
                 {
-                    CveRecords = patchEntries
-                        .Where(e => e.CveRecords?.Count > 0)
-                        .SelectMany(e => e.CveRecords!)
-                        .Distinct()
-                        .ToList() is { Count: > 0 } aggregateCves ? aggregateCves : null,
                     SdkFeatureBands = sdkFeatureBandEntries
                 } : null
             };
