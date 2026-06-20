@@ -166,6 +166,18 @@ public class ReleaseIndexFiles
                 Title = LinkTitles.DotNetReleaseIndex,
             };
 
+            // 2c. Add links to the per-major CVE aggregate (always generated for the major)
+            orderedMajorVersionLinks[LinkRelations.CveIndex] = new HalLink($"{Location.GitHubBaseUri}{majorVersionDirName}/{FileNames.CveIndex}")
+            {
+                Title = $"{LinkTitles.CveIndex} - .NET {majorVersionDirName}",
+                Type = MediaType.Json
+            };
+            orderedMajorVersionLinks[LinkRelations.CveMarkdown] = new HalLink($"{Location.GitHubBaseUri}{majorVersionDirName}/{FileNames.CveMarkdown}")
+            {
+                Title = $"{LinkTitles.CveMarkdown} - .NET {majorVersionDirName}",
+                Type = MediaType.Markdown
+            };
+
             // 3. Add latest and latest-security HAL+JSON links
             if (latestPatch != null)
             {
@@ -354,6 +366,11 @@ public class ReleaseIndexFiles
                         };
                     }).ToList())
                 {
+                    CveRecords = patchEntries
+                        .Where(e => e.CveRecords?.Count > 0)
+                        .SelectMany(e => e.CveRecords!)
+                        .Distinct()
+                        .ToList() is { Count: > 0 } aggregateCves ? aggregateCves : null,
                     SdkFeatureBands = sdkFeatureBandEntries
                 } : null
             };
