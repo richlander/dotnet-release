@@ -166,6 +166,18 @@ public class ReleaseIndexFiles
                 Title = LinkTitles.DotNetReleaseIndex,
             };
 
+            // 2c. Add links to the per-major CVE aggregate (always generated for the major)
+            orderedMajorVersionLinks[LinkRelations.CveIndex] = new HalLink($"{Location.GitHubBaseUri}{majorVersionDirName}/{FileNames.CveIndex}")
+            {
+                Title = $"{LinkTitles.CveIndex} - .NET {majorVersionDirName}",
+                Type = MediaType.Json
+            };
+            orderedMajorVersionLinks[LinkRelations.CveMarkdown] = new HalLink($"{Location.GitHubBaseUri}{majorVersionDirName}/{FileNames.CveMarkdown}")
+            {
+                Title = $"{LinkTitles.CveMarkdown} - .NET {majorVersionDirName}",
+                Type = MediaType.Markdown
+            };
+
             // 3. Add latest and latest-security HAL+JSON links
             if (latestPatch != null)
             {
@@ -336,8 +348,9 @@ public class ReleaseIndexFiles
                             links[LinkRelations.SecurityDisclosures] = new HalLink($"{Location.GitHubBaseUri}{monthIndexPath}");
                         }
 
-                        // Note: CVE IDs (cve_records) are intentionally omitted from patch entries.
-                        // CVEs are a timeline concept - use month or cve-json link.
+                        // Surface the CVE identifiers fixed in this patch so the parent index
+                        // mirrors the child patch index.json root (symmetry with sdk_versions).
+                        // Full disclosure detail stays in the timeline month / cve-json.
                         return new PatchReleaseVersionIndexEntry(
                             e.Version,
                             gaDate,
@@ -348,6 +361,7 @@ public class ReleaseIndexFiles
                         {
                             SdkVersion = e.SdkVersions?.FirstOrDefault(),
                             SdkVersions = e.SdkVersions,
+                            CveRecords = e.CveRecords?.Count > 0 ? e.CveRecords : null,
                             Links = HalHelpers.OrderLinks(links)
                         };
                     }).ToList())
@@ -369,6 +383,9 @@ public class ReleaseIndexFiles
             var patchIndexPath = Path.Combine(outputMajorVersionDir, FileNames.Index);
             var finalPatchIndexJson = (updatedPatchIndexJson ?? patchIndexJson) + '\n';
             await File.WriteAllTextAsync(patchIndexPath, finalPatchIndexJson);
+
+            // Generate the per-major CVE aggregate (cve-index.json) and human-readable cve.md.
+            await CveIndexFiles.GenerateAsync(majorVersionDirName, patchEntries, inputDir, outputMajorVersionDir);
 
             // Same links as the major version index, but with a different base directory (to force different pathing)
             // NOTE: Do NOT add latest-patch or latest-month links here - those change monthly

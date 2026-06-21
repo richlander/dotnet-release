@@ -20,6 +20,17 @@ public partial class ReleaseVersionIndexSerializerContext : JsonSerializerContex
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower,
     WriteIndented = true)]
+[JsonSerializable(typeof(MajorCveIndex))]
+[JsonSerializable(typeof(MajorCveIndexEmbedded))]
+[JsonSerializable(typeof(CveRecordSummary))]
+[JsonSerializable(typeof(HalLink))]
+public partial class MajorCveIndexSerializerContext : JsonSerializerContext
+{
+}
+
+[JsonSourceGenerationOptions(
+    PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower,
+    WriteIndented = true)]
 [JsonSerializable(typeof(ReleaseManifest))]
 [JsonSerializable(typeof(PartialManifest))]
 public partial class ReleaseManifestSerializerContext : JsonSerializerContext

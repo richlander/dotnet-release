@@ -48,7 +48,8 @@ public static class CveTransformer
                     : null,
                 AffectedProducts = affectedProducts?.Count > 0 ? affectedProducts : null,
                 AffectedPackages = affectedPackages?.Count > 0 ? affectedPackages : null,
-                Platforms = disclosure.Platforms
+                Platforms = disclosure.Platforms,
+                Aliases = disclosure.Aliases
             };
         }).ToList();
     }

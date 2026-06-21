@@ -14,6 +14,9 @@ public record CveRecordSummary(
     [Description("Title describing the vulnerability")]
     string Title)
 {
+    [Description("Patch version that shipped the fix (populated in per-major cve-index.json, omitted in timeline indexes)"),
+     JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Fixed { get; set; }
     [JsonPropertyName("_links"),
      JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull),
      Description("HAL+JSON links to related CVE resources")]

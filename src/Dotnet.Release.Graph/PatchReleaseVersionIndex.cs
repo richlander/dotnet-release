@@ -118,6 +118,10 @@ public record PatchReleaseVersionIndexEntry(
      Description("All SDK versions included in this patch release")]
     public IReadOnlyList<string>? SdkVersions { get; init; }
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull),
+     Description("CVE identifiers fixed in this patch release")]
+    public IReadOnlyList<string>? CveRecords { get; init; }
+
     [JsonPropertyName("_links"),
      Description("HAL+JSON links for navigation")]
     public Dictionary<string, HalLink> Links { get; init; } = [];

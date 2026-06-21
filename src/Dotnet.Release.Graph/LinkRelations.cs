@@ -19,6 +19,9 @@ public static class LinkRelations
     public const string Manifest = "manifest";
     public const string MajorManifest = "major-manifest";
     public const string CveJson = "cve-json";
+    public const string CveIndex = "cve-index";
+    public const string CveMarkdown = "cve-md";
+    public const string DisclosureMonth = "disclosure-month";
     public const string Release = "release";
     public const string ReleaseJson = "release-json";
 
