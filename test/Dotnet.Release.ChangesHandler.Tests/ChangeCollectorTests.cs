@@ -70,6 +70,48 @@ public class ChangeCollectorTests
             handler.RequestedUrls);
     }
 
+    [Fact]
+    public async Task GetMergedPullRequestsAsync_UsesTrailingPrNumberWhenSubjectHasMultiple()
+    {
+        // GitHub squash subjects can carry an inline issue reference plus the trailing
+        // PR number, e.g. "Add FULL OUTER JOIN support (#37633) (#38340)" where #37633 is
+        // the closed issue and #38340 is the actual PR. The trailing (#N) must win, and
+        // the cleaned title must keep the inline reference.
+        var handler = new StubGitHubHandler
+        {
+            ["https://api.github.com/repos/dotnet/efcore/compare/base...head?per_page=100&page=1"] = """
+                {
+                  "commits": [
+                    {
+                      "sha": "cccccccccccccccccccccccccccccccccccccccc",
+                      "commit": {
+                        "message": "Add FULL OUTER JOIN support (#37633) (#38340)\n\nCloses #37633"
+                      }
+                    }
+                  ]
+                }
+                """
+        };
+        using var httpClient = new HttpClient(handler);
+        var collector = new ChangeCollector(httpClient);
+
+        var result = await collector.GetMergedPullRequestsAsync("dotnet", "efcore", "base", "head");
+
+        Assert.Collection(
+            result.PullRequests,
+            pr =>
+            {
+                Assert.Equal(38340, pr.Number);
+                Assert.Equal("Add FULL OUTER JOIN support (#37633)", pr.Title);
+                Assert.Equal("https://github.com/dotnet/efcore/pull/38340", pr.Url);
+                Assert.Equal("cccccccccccccccccccccccccccccccccccccccc", pr.MergeCommitSha);
+            });
+        // The subject already yields a PR number, so no commits-to-PRs fallback call is made.
+        Assert.DoesNotContain(
+            "https://api.github.com/repos/dotnet/efcore/commits/cccccccccccccccccccccccccccccccccccccccc/pulls",
+            handler.RequestedUrls);
+    }
+
     private sealed class StubGitHubHandler : HttpMessageHandler
     {
         private readonly Dictionary<string, string> _responses = new(StringComparer.Ordinal);
