@@ -205,11 +205,17 @@ public partial class ChangeCollector(HttpClient httpClient)
             return int.Parse(mergeMatch.Groups[1].Value);
         }
 
-        // Match "(#123)" in squash merge titles
-        var squashMatch = SquashPrRegex().Match(commitMessage);
-        if (squashMatch.Success)
+        // Match "(#123)" in squash merge titles. GitHub appends the PR number as the
+        // *last* "(#N)" on the subject (first) line, e.g.
+        //   "Add FULL OUTER JOIN support (#37633) (#38340)"
+        // where #37633 is an inline issue reference and #38340 is the actual PR.
+        // Only consider the subject line and take the last match so inline issue/PR
+        // references earlier in the title are never mistaken for the merged PR.
+        var subject = commitMessage.Split('\n', 2)[0];
+        var squashMatches = SquashPrRegex().Matches(subject);
+        if (squashMatches.Count > 0)
         {
-            return int.Parse(squashMatch.Groups[1].Value);
+            return int.Parse(squashMatches[^1].Groups[1].Value);
         }
 
         return 0;
@@ -226,9 +232,10 @@ public partial class ChangeCollector(HttpClient httpClient)
             return lines.Length > 1 ? lines[1].Trim() : "";
         }
 
-        // For squash merges: "Fix something (#123)"
+        // For squash merges: "Fix something (#123)". Strip only the trailing PR
+        // number that GitHub appends, leaving any inline issue references intact.
         var title = commitMessage.Split('\n')[0].Trim();
-        title = SquashPrRegex().Replace(title, "").Trim();
+        title = TrailingSquashPrRegex().Replace(title, "").Trim();
         return title;
     }
 
@@ -237,6 +244,9 @@ public partial class ChangeCollector(HttpClient httpClient)
 
     [GeneratedRegex(@"\(#(\d+)\)")]
     private static partial Regex SquashPrRegex();
+
+    [GeneratedRegex(@"\s*\(#\d+\)\s*$")]
+    private static partial Regex TrailingSquashPrRegex();
 }
 
 /// <summary>
