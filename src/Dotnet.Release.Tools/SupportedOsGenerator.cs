@@ -11,6 +11,8 @@ namespace Dotnet.Release.Tools;
 public static class SupportedOsGenerator
 {
     private const string EmbeddedTemplateName = "Dotnet.Release.Tools.supported-os-template.md";
+    private const string Android12DocumentationPrefix = "https://developer.android.com/about/versions/12";
+    private const string AndroidDocumentationUrl = "https://developer.android.com/";
 
     public static MarkoutTemplate LoadTemplate(string? templatePath = null)
     {
@@ -112,7 +114,14 @@ public static class SupportedOsGenerator
         if (info.EolDate == DateOnly.MinValue) return "-";
 
         var dateStr = info.EolDate == DateOnly.MaxValue ? "Active" : info.EolDate.ToString("yyyy-MM-dd");
-        return cycle.Link is not null ? $"[{dateStr}]({cycle.Link})" : dateStr;
+        if (cycle.Link is null)
+            return dateStr;
+
+        string link = cycle.Link.StartsWith(Android12DocumentationPrefix, StringComparison.OrdinalIgnoreCase)
+            ? AndroidDocumentationUrl
+            : cycle.Link;
+
+        return $"[{dateStr}]({link})";
     }
 
     /// <summary>
